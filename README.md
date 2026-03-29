@@ -4,11 +4,26 @@
   <img src="./docs/architecture.svg" alt="Architecture diagram" width="600">
 </p>
 
+
+- [Details](#details)
+  - [When](#when)
+  - [Where](#where)
+- [Motivation](#motivation)
+- [Main goal: ***what*** we'll build](#main-goal-what-well-build)
+  - [Use case #1: Root cause analysis on a REST API](#use-case-1-root-cause-analysis-on-a-rest-api)
+  - [Use case #2: Finding hardware bottlenecks in AI training](#use-case-2-finding-hardware-bottlenecks-in-ai-training)
+- [Meta goal: ***how*** we'll build it](#meta-goal-how-well-build-it)
+  - [Cutting scope](#cutting-scope)
+
 ## Details
 
-When: Friday all day - Saturday 3:30pm MT (April 10-11)
+### When
 
-Where: The [`#monitoring-hackathon`](https://discord.gg/GP5bbkJu) channel [![Discord](https://img.shields.io/badge/Discord-MLOps_Club-5865F2?logo=discord&logoColor=white)](https://discord.gg/GP5bbkJu)
+Friday all day - Saturday 3:30pm MT (April 10-11)
+
+### Where
+
+The [`#monitoring-hackathon`](https://discord.gg/GP5bbkJu) channel [![Discord](https://img.shields.io/badge/Discord-MLOps_Club-5865F2?logo=discord&logoColor=white)](https://discord.gg/GP5bbkJu)
 
 Lets chat in Discord leading up to it to come up with ideas.
 
