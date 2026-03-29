@@ -4,6 +4,11 @@
   <img src="./docs/architecture.svg" alt="Architecture diagram" width="600">
 </p>
 
+<p align="center">
+  <a href="https://discord.gg/GP5bbkJu"><img src="https://img.shields.io/badge/Discord-MLOps_Club-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
+  &nbsp;
+  <a href="https://github.com/mlops-club/auto-monitoring-hackathon"><img src="https://img.shields.io/badge/View_on-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
+</p>
 
 - [Details](#details)
   - [When](#when)
