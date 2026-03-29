@@ -82,9 +82,9 @@ Here's a visualization I made to illustrate the type of data I'd like to collect
 
 ## Meta goal: ***how*** we'll build it
 
-The hackathon goal is not to build this system.
+The hackathon goal is to build this system.
 
-The hackathon goal is to build a system (harness) that builds this system.
+The hackathon goal also to build a system (harness) that builds this system.
 
 I want to draw inspiration from Andrej Karpathy's [autoresearch](https://github.com/karpathy/autoresearch) project. 
 
