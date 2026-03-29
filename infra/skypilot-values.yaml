@@ -1,0 +1,65 @@
+# Helm values for SkyPilot on EKS.
+#
+# Authentication is handled by a standalone oauth2-proxy deployment
+# (see oauth2-proxy-values.yaml for allowed emails and OAuth config).
+
+apiService:
+  replicas: 1
+  skipResourceCheck: true  # bypass 4cpu/8Gi minimum -- using smaller nodes to save money for hackathon
+  resources:  # reduced from default 4cpu/8Gi to fit on t3.medium nodes
+    requests:
+      cpu: "1"
+      memory: "2Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+# Trust the X-Auth-Request-Email header set by the standalone oauth2-proxy
+auth:
+  externalProxy:
+    enabled: true
+    headerName: "X-Auth-Request-Email"
+
+# AWS Network Load Balancer with TLS termination
+ingress-nginx:
+  enabled: true
+  controller:
+    # NLB terminates TLS (L4) but doesn't set X-Forwarded-Proto.
+    # Force it to https so oauth2-proxy CSRF cookies work correctly.
+    proxySetHeaders:
+      X-Forwarded-Proto: "https"
+      X-Forwarded-Scheme: "https"
+      X-Scheme: "https"
+    service:
+      type: LoadBalancer
+      annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+        # ssl-cert ARN is injected via --set in the run script from CDK stack outputs
+        service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+        service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+        # external-dns reads this annotation to auto-create the Route 53 CNAME
+        external-dns.alpha.kubernetes.io/hostname: "skypilot.subq-sandbox.com"
+      targetPorts:
+        https: http
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  host: skypilot.subq-sandbox.com
+  # nginx checks auth via the standalone oauth2-proxy before forwarding to SkyPilot
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.skypilot.svc.cluster.local:80/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://skypilot.subq-sandbox.com/oauth2/start?rd=$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-Email"
+
+# Use the hosting EKS cluster for workloads
+kubernetesCredentials:
+  useApiServerCluster: true
+
+rbac:
+  create: true
+
+storage:
+  enabled: true
+  storageClassName: gp3  # created by CDK; cheaper than gp2 with better baseline IOPS
+  size: 10Gi

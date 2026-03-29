@@ -1,0 +1,132 @@
+#!/bin/bash -euo pipefail
+
+export AWS_PROFILE="mlops-club"
+export AWS_REGION="us-west-2"
+DOMAIN="skypilot.subq-sandbox.com"
+PARENT_DOMAIN="subq-sandbox.com"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Load .env if present
+if [[ -f "${SCRIPT_DIR}/.env" ]]; then
+    set -a
+    source "${SCRIPT_DIR}/.env"
+    set +a
+fi
+
+function cdk-synth {
+    npx aws-cdk synth '*' --app "uv run ${SCRIPT_DIR}/cdk_eks_cluster.py" --profile "${AWS_PROFILE}" --region "${AWS_REGION}"
+}
+
+function cdk-deploy {
+    npx aws-cdk deploy '*' --app "uv run ${SCRIPT_DIR}/cdk_eks_cluster.py" --profile "${AWS_PROFILE}" --region "${AWS_REGION}" --require-approval never
+}
+
+function cdk-destroy {
+    npx aws-cdk destroy '*' --app "uv run ${SCRIPT_DIR}/cdk_eks_cluster.py" --profile "${AWS_PROFILE}" --region "${AWS_REGION}"
+}
+
+function cdk-bootstrap {
+    local ACCOUNT_ID
+    ACCOUNT_ID=$(aws sts get-caller-identity --profile "${AWS_PROFILE}" --query Account --output text)
+    npx aws-cdk bootstrap "aws://${ACCOUNT_ID}/${AWS_REGION}" --profile "${AWS_PROFILE}"
+}
+
+function get-kubeconfig {
+    local ROLE_ARN
+    ROLE_ARN=$(aws cloudformation describe-stacks \
+        --stack-name SkyPilotEksStack \
+        --region "${AWS_REGION}" \
+        --profile "${AWS_PROFILE}" \
+        --query "Stacks[0].Outputs[?OutputKey=='ClusterAdminRoleArn'].OutputValue" \
+        --output text)
+    aws eks update-kubeconfig \
+        --name skypilot-eks \
+        --region "${AWS_REGION}" \
+        --profile "${AWS_PROFILE}" \
+        --role-arn "${ROLE_ARN}" \
+        --alias skypilot-eks
+    kubectl --context skypilot-eks get nodes
+}
+
+function _get-stack-output {
+    aws cloudformation describe-stacks \
+        --stack-name SkyPilotEksStack \
+        --region "${AWS_REGION}" \
+        --profile "${AWS_PROFILE}" \
+        --query "Stacks[0].Outputs[?OutputKey=='${1}'].OutputValue" \
+        --output text
+}
+
+function install-skypilot {
+    if [[ -z "${GOOGLE_CLIENT_ID:-}" || -z "${GOOGLE_CLIENT_SECRET:-}" ]]; then
+        exit 1
+    fi
+
+    local CERT_ARN
+    CERT_ARN=$(_get-stack-output CertificateArn)
+
+    # 1. Deploy standalone oauth2-proxy (handles per-email allowlist)
+    helm repo add oauth2-proxy https://oauth2-proxy.github.io/manifests || true
+    helm repo add skypilot https://helm.skypilot.co || true
+    helm repo update
+
+    # Generate a stable cookie secret (derived from client secret so it's deterministic across deploys)
+    local COOKIE_SECRET
+    COOKIE_SECRET=$(echo -n "${GOOGLE_CLIENT_SECRET}" | openssl dgst -sha256 -binary | head -c 32 | base64)
+
+    helm upgrade --install oauth2-proxy oauth2-proxy/oauth2-proxy \
+        --namespace skypilot \
+        --create-namespace \
+        --values "${SCRIPT_DIR}/oauth2-proxy-values.yaml" \
+        --set "config.clientID=${GOOGLE_CLIENT_ID}" \
+        --set "config.clientSecret=${GOOGLE_CLIENT_SECRET}" \
+        --set "config.cookieSecret=${COOKIE_SECRET}"
+
+    # 2. Deploy SkyPilot (trusts oauth2-proxy via auth.externalProxy)
+    helm upgrade --install skypilot skypilot/skypilot-nightly --devel \
+        --namespace skypilot \
+        --values "${SCRIPT_DIR}/skypilot-values.yaml" \
+        --set "ingress-nginx.controller.service.annotations.service\.beta\.kubernetes\.io/aws-load-balancer-ssl-cert=${CERT_ARN}"
+
+    kubectl wait --for=condition=Ready pods --all --namespace skypilot --timeout=300s || true
+    kubectl get pods -n skypilot
+
+    # 3. external-dns automatically creates the Route 53 CNAME for the NLB
+    _install-external-dns
+}
+
+function _install-external-dns {
+    local EXTERNAL_DNS_ROLE_ARN
+    EXTERNAL_DNS_ROLE_ARN=$(_get-stack-output ExternalDnsRoleArn)
+
+    helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/ || true
+    helm repo update
+
+    helm upgrade --install external-dns external-dns/external-dns \
+        --namespace external-dns \
+        --create-namespace \
+        --set "provider.name=aws" \
+        --set "extraArgs[0]=--aws-zone-type=public" \
+        --set "domainFilters[0]=${PARENT_DOMAIN}" \
+        --set "policy=upsert-only" \
+        --set "registry=txt" \
+        --set "txtOwnerId=skypilot-eks" \
+        --set "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=${EXTERNAL_DNS_ROLE_ARN}" \
+        --set "serviceAccount.name=external-dns"
+
+    kubectl wait --for=condition=Ready pods --all --namespace external-dns --timeout=120s || true
+    kubectl get pods -n external-dns
+}
+
+function skypilot-status {
+    kubectl get pods -n skypilot
+    kubectl get svc -n skypilot
+}
+
+function help {
+    compgen -A function | cat -n
+}
+
+TIMEFORMAT="Task completed in %3lR"
+time ${@:-help}

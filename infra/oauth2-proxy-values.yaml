@@ -1,0 +1,44 @@
+# Official oauth2-proxy Helm chart values.
+# Chart: oauth2-proxy/oauth2-proxy (https://github.com/oauth2-proxy/manifests)
+#
+# To add or remove allowed emails, edit the list below and re-run:
+#   ./run install-skypilot
+
+config:
+  # Client ID, client secret, and cookie secret are injected via --set in the run script
+  configFile: |-
+    upstreams = ["file:///dev/null"]
+
+extraArgs:
+  provider: oidc
+  oidc-issuer-url: https://accounts.google.com
+  reverse-proxy: "true"
+  set-xauthrequest: "true"
+  skip-provider-button: "true"
+  cookie-secure: "true"
+  cookie-samesite: lax
+
+# Per-email allowlist (the reason we use a separate chart instead of SkyPilot's built-in)
+authenticatedEmailsFile:
+  enabled: true
+  restricted_access: |-
+    eric.riddoch@gmail.com
+    avr13405@gmail.com
+
+# Cookie-based session storage (simpler than redis for a small deployment)
+sessionStorage:
+  type: cookie
+
+# Ingress for all /oauth2 paths (start, callback, auth, etc.)
+# Must be separate from SkyPilot's ingress so these paths bypass the auth-url annotation.
+ingress:
+  enabled: true
+  className: nginx
+  path: /oauth2
+  pathType: Prefix
+  hosts:
+    - skypilot.subq-sandbox.com
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      set $pass_access_scheme "https";
