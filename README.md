@@ -8,7 +8,7 @@
 
 When: Friday all day - Saturday 3:30pm MT (April 10-11)
 
-Where: The [`#hackathon`](https://discord.gg/GP5bbkJu) channel [![Discord](https://img.shields.io/badge/Discord-MLOps_Club-5865F2?logo=discord&logoColor=white)](https://discord.gg/GP5bbkJu)
+Where: The [`#monitoring-hackathon`](https://discord.gg/GP5bbkJu) channel [![Discord](https://img.shields.io/badge/Discord-MLOps_Club-5865F2?logo=discord&logoColor=white)](https://discord.gg/GP5bbkJu)
 
 Lets chat in Discord leading up to it to come up with ideas.
 
