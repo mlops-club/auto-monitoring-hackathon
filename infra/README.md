@@ -18,68 +18,67 @@ aws sso login --profile mlops-club
 ```mermaid
 graph TB
     subgraph Internet
-        Browser[Browser]
+        Browser["Browser"]
     end
 
     subgraph AWS
-        R53[Route 53<br/>skypilot.subq-sandbox.com<br/>CNAME]
-        ACM[ACM Certificate<br/>*.subq-sandbox.com]
-        NLB[Network Load Balancer<br/>TLS termination on :443]
+        R53["Route 53 CNAME<br/>skypilot.subq-sandbox.com"]
+        ACM["ACM Certificate"]
+        NLB["Network Load Balancer<br/>TLS termination"]
     end
 
-    subgraph EKS Cluster
-        subgraph ns-skypilot [namespace: skypilot]
-            subgraph helm-skypilot [Helm: skypilot]
-                nginx[Pod: ingress-nginx-controller<br/>ingress-nginx:v1.11.8]
-                nginx-svc[Service: ingress-nginx-controller<br/>type: LoadBalancer]
-                skypilot-pod[Pod: skypilot-api-server<br/>skypilot-nightly + logrotate]
-                skypilot-svc[Service: skypilot-api-service<br/>type: ClusterIP]
-                skypilot-ingress[Ingress: skypilot-ingress<br/>path: /]
-                pvc[PVC: skypilot-state<br/>10Gi gp3 EBS]
-                skypilot-sa[ServiceAccount: skypilot-api-sa]
-                skypilot-cm[ConfigMap: skypilot-config<br/>+ skypilot-server-config]
+    subgraph EKS["EKS Cluster"]
+        subgraph ns_skypilot["namespace: skypilot"]
+            subgraph helm_skypilot["Helm chart: skypilot"]
+                nginx["Pod: ingress-nginx-controller"]
+                nginx_svc["Svc: ingress-nginx-controller<br/>LoadBalancer"]
+                skypilot_pod["Pod: skypilot-api-server<br/>skypilot-nightly + logrotate"]
+                skypilot_svc["Svc: skypilot-api-service<br/>ClusterIP"]
+                skypilot_ingress["Ingress: skypilot-ingress<br/>path /"]
+                pvc["PVC: skypilot-state<br/>10Gi gp3 EBS"]
+                skypilot_cm["ConfigMap: skypilot-config"]
             end
 
-            subgraph helm-oauth2 [Helm: oauth2-proxy]
-                oauth2-pod[Pod: oauth2-proxy<br/>oauth2-proxy:v7.15.0]
-                oauth2-svc[Service: oauth2-proxy<br/>type: ClusterIP]
-                oauth2-ingress[Ingress: oauth2-proxy<br/>path: /oauth2]
-                oauth2-secret[Secret: oauth2-proxy<br/>client-id, client-secret, cookie-secret]
-                oauth2-cm[ConfigMap: oauth2-proxy<br/>+ oauth2-proxy-accesslist]
+            subgraph helm_oauth2["Helm chart: oauth2-proxy"]
+                oauth2_pod["Pod: oauth2-proxy"]
+                oauth2_svc["Svc: oauth2-proxy<br/>ClusterIP"]
+                oauth2_ingress["Ingress: oauth2-proxy<br/>path /oauth2"]
+                oauth2_secret["Secret: oauth2-proxy<br/>client-id, client-secret"]
+                oauth2_cm["ConfigMap: oauth2-proxy-accesslist<br/>email allowlist"]
             end
         end
 
-        subgraph ns-externaldns [namespace: external-dns]
-            subgraph helm-extdns [Helm: external-dns]
-                extdns-pod[Pod: external-dns]
-                extdns-sa[ServiceAccount: external-dns<br/>IRSA → Route 53]
+        subgraph ns_externaldns["namespace: external-dns"]
+            subgraph helm_extdns["Helm chart: external-dns"]
+                extdns_pod["Pod: external-dns"]
+                extdns_sa["ServiceAccount: external-dns<br/>IRSA"]
             end
         end
     end
 
-    Browser -->|HTTPS :443| R53
+    Browser -->|"HTTPS :443"| R53
     R53 -->|CNAME| NLB
     ACM -.->|TLS cert| NLB
-    NLB -->|HTTP :80| nginx-svc
-    nginx-svc --> nginx
+    NLB -->|"HTTP :80"| nginx_svc
+    nginx_svc --> nginx
 
-    nginx -->|auth subrequest<br/>/oauth2/auth| oauth2-svc
-    oauth2-svc --> oauth2-pod
-    oauth2-pod --- oauth2-secret
-    oauth2-pod --- oauth2-cm
+    nginx -->|"auth subrequest /oauth2/auth"| oauth2_svc
+    oauth2_svc --> oauth2_pod
+    oauth2_pod --- oauth2_secret
+    oauth2_pod --- oauth2_cm
 
-    nginx -->|path: /oauth2/*| oauth2-ingress
-    oauth2-ingress --> oauth2-svc
+    nginx -->|"path /oauth2"| oauth2_ingress
+    oauth2_ingress --> oauth2_svc
 
-    nginx -->|path: /| skypilot-ingress
-    skypilot-ingress -->|authenticated| skypilot-svc
-    skypilot-svc --> skypilot-pod
-    skypilot-pod --- pvc
-    skypilot-pod --- skypilot-cm
+    nginx -->|"path /"| skypilot_ingress
+    skypilot_ingress -->|authenticated| skypilot_svc
+    skypilot_svc --> skypilot_pod
+    skypilot_pod --- pvc
+    skypilot_pod --- skypilot_cm
 
-    extdns-pod -->|watches annotations on| nginx-svc
-    extdns-pod -->|creates CNAME in| R53
-    extdns-sa -.->|IRSA| R53
+    extdns_pod -->|watches| nginx_svc
+    extdns_pod -->|creates CNAME| R53
+    extdns_sa -.->|IRSA| R53
 ```
 
 ## Deployment dependency graph
@@ -88,51 +87,51 @@ graph TB
 
 ```mermaid
 graph LR
-    subgraph CDK [CDK Stack: SkyPilotEksStack]
-        EKS[EKS Cluster]
-        ACM[ACM Certificate]
-        IRSA_DNS[IAM Role<br/>external-dns IRSA]
-        SC[StorageClass: gp3]
+    subgraph CDK["CDK Stack"]
+        EKS["EKS Cluster"]
+        ACM["ACM Certificate"]
+        IRSA_DNS["IAM Role<br/>external-dns IRSA"]
+        SC["StorageClass gp3"]
     end
 
-    subgraph Helm1 [1. helm install oauth2-proxy]
-        O_Deploy[Deployment<br/>oauth2-proxy]
-        O_Svc[Service<br/>oauth2-proxy :80]
-        O_Ingress[Ingress<br/>/oauth2]
-        O_Secret[Secret<br/>client-id, client-secret<br/>cookie-secret]
-        O_CM[ConfigMap<br/>email allowlist]
+    subgraph Helm1["1. helm install oauth2-proxy"]
+        O_Deploy["Deployment oauth2-proxy"]
+        O_Svc["Service oauth2-proxy"]
+        O_Ingress["Ingress /oauth2"]
+        O_Secret["Secret credentials"]
+        O_CM["ConfigMap email allowlist"]
     end
 
-    subgraph Helm2 [2. helm install skypilot]
-        S_Deploy[Deployment<br/>skypilot-api-server]
-        S_Svc[Service<br/>skypilot-api-service :80]
-        S_Ingress[Ingress<br/>/ with auth annotations]
-        S_PVC[PVC<br/>skypilot-state 10Gi]
-        N_Deploy[Deployment<br/>ingress-nginx-controller]
-        N_Svc[Service: LoadBalancer<br/>ingress-nginx :80/:443]
+    subgraph Helm2["2. helm install skypilot"]
+        S_Deploy["Deployment skypilot-api-server"]
+        S_Svc["Service skypilot-api-service"]
+        S_Ingress["Ingress / with auth"]
+        S_PVC["PVC skypilot-state 10Gi"]
+        N_Deploy["Deployment ingress-nginx"]
+        N_Svc["Service LoadBalancer<br/>ingress-nginx"]
     end
 
-    subgraph Helm3 [3. helm install external-dns]
-        E_Deploy[Deployment<br/>external-dns]
-        E_SA[ServiceAccount<br/>IRSA-annotated]
+    subgraph Helm3["3. helm install external-dns"]
+        E_Deploy["Deployment external-dns"]
+        E_SA["ServiceAccount IRSA"]
     end
 
-    subgraph AWS_Runtime [AWS resources created at runtime]
-        NLB[NLB<br/>auto-provisioned]
-        CNAME[Route 53 CNAME<br/>auto-managed]
+    subgraph AWS_Runtime["AWS runtime resources"]
+        NLB["NLB auto-provisioned"]
+        CNAME["Route 53 CNAME"]
     end
 
     EKS --> Helm1
     EKS --> Helm2
     EKS --> Helm3
 
-    ACM -->|cert ARN via --set| N_Svc
-    IRSA_DNS -->|role ARN via --set| E_SA
-    SC -->|storageClassName: gp3| S_PVC
+    ACM -->|"cert ARN via --set"| N_Svc
+    IRSA_DNS -->|"role ARN via --set"| E_SA
+    SC -->|storageClassName| S_PVC
 
-    S_Ingress -->|auth-url annotation<br/>points to| O_Svc
-    N_Svc -->|LB annotation triggers| NLB
-    E_Deploy -->|reads annotation on| N_Svc
+    S_Ingress -->|"auth-url points to"| O_Svc
+    N_Svc -->|"LB annotation"| NLB
+    E_Deploy -->|watches| N_Svc
     E_Deploy -->|upserts| CNAME
 ```
 
