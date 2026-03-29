@@ -1,0 +1,2375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU Cluster Overview</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    background: #f1f5f9;
+    color: #111827;
+    padding: 0;
+    margin: 0;
+  }
+  .dashboard {
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .header-left h1 { font-size: 16px; font-weight: 700; color: #111827; }
+  .header-left p { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 9.5px;
+    color: #6b7280;
+  }
+  .legend-item { display: flex; align-items: center; gap: 3px; }
+  .legend-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .legend-battery {
+    width: 10px; height: 10px; border-radius: 2px;
+    border: 1px solid #d1d5db;
+    background: #f3f4f6;
+    position: relative;
+    overflow: hidden;
+  }
+  .legend-battery::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 60%;
+    background: #f59e0b;
+    opacity: 0.30;
+    border-radius: 0 0 1px 1px;
+  }
+
+  /* ---- Table ---- */
+  .cluster-table {
+    border-collapse: collapse;
+    font-size: 11px;
+    margin: 0 auto;
+  }
+
+  /* Column headers */
+  .cluster-table thead th {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 6px 8px 6px;
+    text-align: left;
+    vertical-align: bottom;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .col-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #374151;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 3px;
+  }
+  .col-tabs {
+    display: flex;
+    gap: 1px;
+  }
+  .col-tab {
+    font-size: 9px;
+    font-weight: 500;
+    padding: 1px 4px;
+    border-radius: 3px;
+    cursor: pointer;
+    color: #9ca3af;
+    border: none;
+    background: none;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .col-tab:hover { color: #6b7280; background: #f3f4f6; }
+  .col-tab.active {
+    color: #2563eb;
+    font-weight: 600;
+    background: #eff6ff;
+  }
+
+  /* Node rows */
+  .cluster-table tbody tr {
+    border-bottom: 1px solid #f5f5f5;
+    transition: background 0.1s;
+  }
+  .cluster-table tbody tr:nth-child(even) { background: #fafbfc; }
+  .cluster-table tbody tr:hover { background: #f5f7ff; }
+
+  .cluster-table td {
+    padding: 3px 6px;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  /* Node cell */
+  .node-cell {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .health-bar {
+    width: 3px;
+    height: 16px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .node-name {
+    font-size: 10px; font-weight: 400; color: #374151;
+    background: #f3f4f6; border: 1px solid #e5e7eb;
+    padding: 1px 8px; border-radius: 10px;
+    cursor: pointer; transition: all 0.15s;
+    display: inline-block;
+  }
+  .node-name:hover { background: #e5e7eb; border-color: #d1d5db; }
+  .node-ip { font-size: 10px; color: #9ca3af; }
+  .health-badge {
+    font-size: 7.5px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    padding: 1px 4px;
+    border-radius: 6px;
+    display: inline-block;
+  }
+
+  /* Square grid */
+  .sq-row {
+    display: flex;
+    gap: 2px;
+    align-items: flex-start;
+  }
+  .sq-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  /* ---- Squares ---- */
+  .sq {
+    width: 13px;
+    height: 13px;
+    border-radius: 2.5px;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+    flex-shrink: 0;
+  }
+  .sq:hover {
+    transform: scale(1.5);
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  /* Battery / fill square */
+  .sq-batt {
+    background: #f3f4f6;
+    border: 0.7px solid #d1d5db;
+    overflow: hidden;
+  }
+  .sq-batt-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 0 0 2px 2px;
+    transition: height 0.3s;
+  }
+  .sq-batt-fill.green  { background: rgba(34,197,94,0.55); }
+  .sq-batt-fill.yellow { background: rgba(245,158,11,0.50); }
+  .sq-batt-fill.red    { background: rgba(239,68,68,0.55); }
+
+
+  /* Job allocation squares */
+  .sq-job {
+    border-width: 1px;
+    border-style: solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 7px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .sq-job.job-none {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    border-style: dashed;
+    color: #d1d5db;
+  }
+
+  /* ---- Search / Filter Bar ---- */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .search-wrap {
+    position: relative;
+    display: inline-block;
+  }
+  .search-input {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 10px 4px 26px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    outline: none;
+    width: 280px;
+    background: #f9fafb;
+    color: #111827;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .search-input:focus { border-color: #93c5fd; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); background: #fff; }
+  .search-input::placeholder { color: #9ca3af; }
+  .search-icon {
+    position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 12px; color: #9ca3af; pointer-events: none;
+  }
+  .autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 100;
+    display: none;
+  }
+  .autocomplete-dropdown.open { display: block; }
+  .ac-item {
+    padding: 5px 10px;
+    font-size: 10.5px;
+    cursor: pointer;
+    color: #374151;
+    border-bottom: 1px solid #f5f5f5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover, .ac-item.highlighted { background: #eff6ff; color: #1d4ed8; }
+  .ac-key { font-family: 'SF Mono', 'Menlo', monospace; font-size: 10px; }
+  .ac-val { color: #6b7280; font-size: 9.5px; }
+  .ac-count {
+    font-size: 9px; color: #9ca3af;
+    background: #f3f4f6; border-radius: 8px;
+    padding: 0 5px; min-width: 16px; text-align: center;
+  }
+  .filter-chips {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-chip {
+    font-size: 10px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    padding: 2px 6px 2px 8px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    color: #1e40af;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .filter-chip-x {
+    cursor: pointer;
+    color: #93c5fd;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 600;
+    transition: color 0.1s;
+  }
+  .filter-chip-x:hover { color: #ef4444; }
+  .match-count {
+    font-size: 10px;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+
+  /* ---- Tooltip ---- */
+  .tooltip {
+    position: fixed;
+    z-index: 1000;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 10.5px;
+    line-height: 1.5;
+    padding: 6px 9px;
+    border-radius: 6px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s;
+    max-width: 380px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    white-space: pre-line;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-label { color: #94a3b8; }
+  .tooltip .tt-val { color: #f1f5f9; font-weight: 600; }
+  .tooltip .tt-warn { color: #fbbf24; }
+  .tooltip .tt-crit { color: #f87171; }
+
+  /* ---- Footer ---- */
+  .footer {
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    padding: 10px 20px;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 10px;
+    color: #6b7280;
+    flex-wrap: wrap;
+  }
+  .footer strong { color: #374151; }
+  .footer .alert { color: #b91c1c; font-weight: 600; }
+  .footer .gpu-counts { display: flex; align-items: center; gap: 8px; }
+  .footer .gpu-counts .legend-dot { width: 6px; height: 6px; display: inline-block; border-radius: 50%; }
+
+  /* ---- Column descriptions ---- */
+  .col-descriptions {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px 24px 32px;
+    font-size: 12px;
+    color: #374151;
+    line-height: 1.6;
+  }
+  .col-descriptions h2 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .col-descriptions p {
+    margin: 0 0 8px;
+    color: #4b5563;
+    font-size: 11px;
+  }
+  .col-descriptions p:last-of-type { margin-bottom: 16px; }
+  .col-descriptions dl { margin: 0; }
+  .col-descriptions dt {
+    font-weight: 700;
+    color: #111827;
+    margin-top: 10px;
+    font-size: 11px;
+  }
+  .col-descriptions dd {
+    margin: 2px 0 0 0;
+    color: #4b5563;
+    font-size: 11px;
+  }
+  .col-descriptions ul {
+    margin: 4px 0 0 16px;
+    padding: 0;
+  }
+  .col-descriptions li {
+    margin: 2px 0;
+    font-size: 10.5px;
+    color: #6b7280;
+  }
+  .col-descriptions li b { color: #374151; }
+  .cd-green { color: #15803d; font-weight: 600; }
+  .cd-yellow { color: #92400e; font-weight: 600; }
+  .cd-red { color: #b91c1c; font-weight: 600; }
+
+  /* ---- Page-size selector ---- */
+  .page-size-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #6b7280;
+    margin-left: 12px;
+  }
+  .page-pill {
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .page-pill:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+  .page-pill.active {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  /* ---- Table footer (tfoot) ---- */
+  .cluster-table tfoot td {
+    padding: 6px 8px;
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 500;
+    white-space: nowrap;
+    border-top: 2px solid #e5e7eb;
+    background: #f9fafb;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+  }
+  .cluster-table tfoot td.wrap-cell {
+    white-space: normal;
+    max-width: 100px;
+    line-height: 1.4;
+  }
+
+  /* ---- Group rows ---- */
+  .group-header-row td {
+    padding: 8px 8px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #374151;
+    background: #f1f5f9;
+    border-top: 2px solid #e5e7eb;
+    letter-spacing: 0.2px;
+  }
+  .group-header-row td .group-count {
+    font-weight: 400;
+    color: #6b7280;
+    font-size: 10px;
+    margin-left: 6px;
+  }
+  .group-summary-row td {
+    padding: 4px 8px;
+    font-size: 10px;
+    color: #6b7280;
+    font-weight: 600;
+    white-space: nowrap;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
+  .group-summary-row td.wrap-cell {
+    white-space: normal;
+    max-width: 100px;
+    line-height: 1.4;
+  }
+  .group-overlap-note td {
+    padding: 6px 12px;
+    font-size: 10px;
+    color: #92400e;
+    background: #fffbeb;
+    border-bottom: 1px solid #fde68a;
+    font-style: italic;
+  }
+
+  /* ---- Group-by selector ---- */
+  .group-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #6b7280;
+    margin-left: 12px;
+  }
+  .group-select {
+    font-family: inherit;
+    font-size: 10px;
+    padding: 2px 6px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #374151;
+    outline: none;
+    cursor: pointer;
+    max-width: 220px;
+  }
+  .group-select:focus { border-color: #93c5fd; box-shadow: 0 0 0 2px rgba(59,130,246,0.15); }
+
+  /* ---- View metrics button ---- */
+  .view-metrics-btn {
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 10px;
+    border: 1px solid #2563eb;
+    background: #eff6ff;
+    color: #2563eb;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-left: 4px;
+  }
+  .view-metrics-btn:hover { background: #2563eb; color: #fff; }
+
+  /* ---- Metrics overlay (modal) ---- */
+  .mo-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mo-modal {
+    background: #0f0f1a;
+    color: #e2e8f0;
+    border-radius: 12px;
+    width: 92vw;
+    max-width: 1400px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+  }
+  .mo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #2a2a40;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-radius: 12px 12px 0 0;
+  }
+  .mo-title {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .mo-title span { color: #94a3b8; font-weight: 400; font-size: 11px; margin-left: 12px; }
+  .mo-close {
+    background: none;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .mo-close:hover { background: #334155; color: #fff; }
+  .mo-filters {
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: #151525;
+    border-bottom: 1px solid #2a2a40;
+    font-size: 10px;
+  }
+  .mo-filters label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #94a3b8;
+  }
+  .mo-filters label.checked { border-color: #3b82f6; background: #1e3a5f; color: #93c5fd; }
+  .mo-filters input[type=checkbox] { display: none; }
+  .mo-filter-label { font-size: 10px; color: #64748b; margin-right: 6px; font-weight: 600; }
+  .mo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 16px 20px;
+  }
+  .mo-chart-wrap {
+    background: #1a1a2e;
+    border: 1px solid #2a2a40;
+    border-radius: 8px;
+    padding: 10px 12px 6px;
+  }
+  .mo-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+    padding: 6px 0 2px;
+  }
+  .mo-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 4px;
+    transition: opacity 0.15s;
+  }
+  .mo-legend-item:hover { background: #1e293b; }
+  .mo-legend-item.off { opacity: 0.35; text-decoration: line-through; }
+  .mo-legend-swatch {
+    width: 8px;
+    height: 3px;
+    border-radius: 1px;
+    flex-shrink: 0;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <h1>GPU Cluster Overview</h1>
+      <p>6 nodes · 32 GPUs · Updated 14:32 UTC</p>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-battery"></div> = % used</div>
+    </div>
+  </div>
+
+  <!-- Search / Filter -->
+  <div class="search-bar">
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+      <input class="search-input" id="label-search" type="text" placeholder="Filter by label, e.g. nvidia.com/gpu.product=..." autocomplete="off">
+      <div class="autocomplete-dropdown" id="ac-dropdown"></div>
+    </div>
+    <div class="filter-chips" id="filter-chips"></div>
+    <span class="match-count" id="match-count"></span>
+    <div class="page-size-bar">
+      <span>Show:</span>
+      <button class="page-pill active" data-size="25">25</button>
+      <button class="page-pill" data-size="50">50</button>
+      <button class="page-pill" data-size="200">200</button>
+    </div>
+    <div class="group-bar">
+      <span>Group:</span>
+      <select class="group-select" id="group-select">
+        <option value="">None</option>
+        <option value="gpu">GPU Type</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <table class="cluster-table">
+    <thead>
+      <tr>
+        <th><span class="col-label">Node</span></th>
+        <th></th>
+        <th>
+          <span class="col-label">GPUs</span>
+          <div class="col-tabs" data-group="gpu">
+            <button class="col-tab active" data-tab="util" data-tip="Utilization (%)">Util</button>
+            <button class="col-tab" data-tab="mem" data-tip="Video RAM (GB)">VRAM</button>
+            <button class="col-tab" data-tab="temp" data-tip="Temperature (°C)">Tmp</button>
+            <button class="col-tab" data-tab="pwr" data-tip="Power Draw (W)">Pwr</button>
+            <button class="col-tab" data-tab="job" data-tip="Job Allocation">Job</button>
+          </div>
+        </th>
+        <th>
+          <span class="col-label">Disks</span>
+          <div class="col-tabs" data-group="disk">
+            <button class="col-tab active" data-tab="free" data-tip="Disk Space Used (TB)">Space</button>
+            <button class="col-tab" data-tab="iops" data-tip="I/O Operations Per Second (K)">IOPS</button>
+            <button class="col-tab" data-tab="tput" data-tip="Throughput (GB/s)">Tput</button>
+          </div>
+        </th>
+        <th>
+          <span class="col-label">Network</span>
+          <div class="col-tabs" data-group="net">
+            <button class="col-tab active" data-tab="bw" data-tip="Bandwidth (Gb/s)">BW</button>
+            <button class="col-tab" data-tab="drops" data-tip="Packet Drops (count)">Drop</button>
+          </div>
+        </th>
+        <th>
+          <span class="col-label">RDMA / IB</span>
+          <div class="col-tabs" data-group="rdma">
+            <button class="col-tab active" data-tab="bw" data-tip="Bandwidth (Gb/s)">BW</button>
+            <button class="col-tab" data-tab="cong" data-tip="Explicit Congestion Notification (K marks/s)">Cng</button>
+            <button class="col-tab" data-tab="retry" data-tip="Transport Retries (/s)">Rty</button>
+          </div>
+        </th>
+        <th>
+          <span class="col-label">PCIe</span>
+          <div class="col-tabs" data-group="pcie">
+            <button class="col-tab active" data-tab="tput" data-tip="Throughput (GB/s)">Tput</button>
+            <button class="col-tab" data-tab="sat" data-tip="Saturation (%)">Sat</button>
+          </div>
+        </th>
+        <th>
+          <span class="col-label">CPU · RAM</span>
+          <div class="col-tabs" data-group="cpuram">
+            <button class="col-tab active" data-tab="cpu" data-tip="Avg CPU Utilization (%)">CPU</button>
+            <button class="col-tab" data-tab="swap" data-tip="Swap (%) / Pressure Stall (%)">Swp</button>
+          </div>
+        </th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+    <tfoot id="table-foot"></tfoot>
+  </table>
+
+  <!-- Old footer removed — now using <tfoot> in table -->
+</div>
+
+<!-- Column descriptions -->
+<div class="col-descriptions">
+  <h2>Visualization Pattern</h2>
+  <p>
+    Each node in the cluster is a single row. Every hardware resource on that node — GPUs, disks, NICs, IB interfaces, etc. — is represented by a small square. The square acts as a <b>fill gauge</b>: a colored region fills it from the bottom up, proportional to the metric's percentage value. An empty square means 0%; a fully filled square means 100%.
+  </p>
+  <p>
+    The fill color encodes severity. For most metrics (disk usage, RAM, temperature, network saturation), higher is worse, so the color grades from <span class="cd-green">green</span> (low/healthy) through <span class="cd-yellow">yellow</span> (moderate) to <span class="cd-red">red</span> (critical). GPU utilization is the exception — higher is better, so a full green square means the GPU is working hard and a nearly-empty red square means it's underutilized.
+  </p>
+  <p>
+    A half-filled yellow square immediately tells you "this resource is at ~50% and starting to warm up" without needing to read a number. The pattern lets you scan an entire cluster in a glance: a row of tall green fills = healthy node, a row of tall red fills = something needs attention. Hover any square for exact numbers. For metrics that are not naturally 0–100% (like temperature), a practical upper bound is chosen (e.g. 90°C for H100 thermal throttle) and the fill represents the fraction of that bound. The tooltip always shows the actual value / max so the denominator is explicit.
+  </p>
+  <p>
+    Tabs above each column let you switch which metric the squares display. For example, the GPU column can show utilization, VRAM usage, temperature, power draw, or job allocation. The square positions stay fixed (one per device, left to right by index) so you can flip between tabs and compare the same device across metrics.
+  </p>
+
+  <h2>Column Reference</h2>
+  <dl>
+    <dt>Node</dt>
+    <dd>Hostname, IP address, and composite health status. The left accent bar indicates overall health: <span class="cd-green">green</span> = all subsystems healthy, <span class="cd-yellow">yellow</span> = one or more warnings, <span class="cd-red">red</span> = critical issue requiring attention.</dd>
+
+    <dt>GPUs</dt>
+    <dd>One square per GPU on the node (ordered by device index). Each square is a fill gauge showing the selected metric as a percentage.
+      <ul>
+        <li><b>Util</b> &mdash; SM compute utilization (DCGM_FI_DEV_GPU_UTIL). Higher is better: 0% = idle (gray), &gt;65% = <span class="cd-green">green</span>, 25–65% = <span class="cd-yellow">yellow</span>, &lt;25% = <span class="cd-red">red</span> (underutilized).</li>
+        <li><b>VRAM</b> &mdash; VRAM usage as % of total (e.g. 44.8 / 80 GB). Shown as a capacity fill gauge.</li>
+        <li><b>Tmp</b> &mdash; GPU die temperature as a fraction of 90°C (thermal throttle ceiling for H100). Tooltip shows actual / max. &lt;50°C green, 50–70°C yellow, &gt;70°C red.</li>
+        <li><b>Pwr</b> &mdash; Power draw as % of TDP (e.g. 320 / 700 W).</li>
+        <li><b>Job</b> &mdash; Job allocation. Colored squares with a letter ID indicate which job owns each GPU. Dashed empty squares are unallocated.</li>
+      </ul>
+    </dd>
+
+    <dt>Disks</dt>
+    <dd>One square per NVMe drive. The fill level represents <b>space used</b> &mdash; an empty square means mostly free (healthy), a full square means nearly out of space (critical). Hover for used/total in TB.
+      <ul>
+        <li><b>Space</b> &mdash; Disk capacity consumed. &lt;40% green, 40–75% yellow, &gt;75% red. Hover shows used/total in TB.</li>
+        <li><b>IOPS</b> &mdash; I/O operations per second as % of device maximum. High IOPS + high queue depth = I/O pressure.</li>
+        <li><b>Tput</b> &mdash; Sequential read/write throughput as % of rated max (GB/s).</li>
+      </ul>
+    </dd>
+
+    <dt>Network</dt>
+    <dd>One square per Ethernet NIC. Fill level = % of link bandwidth consumed.
+      <ul>
+        <li><b>BW</b> &mdash; Aggregate TX+RX throughput as % of link speed (e.g. 85 / 100 Gb/s).</li>
+        <li><b>Drop</b> &mdash; Packet drops / errors. Color is based on absolute count thresholds (&gt;500 = red).</li>
+      </ul>
+    </dd>
+
+    <dt>RDMA / IB</dt>
+    <dd>One square per InfiniBand HCA / RDMA interface. Critical for GPU-to-GPU communication in distributed training.
+      <ul>
+        <li><b>BW</b> &mdash; Bandwidth utilization as % of link rate (e.g. 150 / 200 Gb/s HDR).</li>
+        <li><b>Cng</b> &mdash; Fabric congestion measured by ECN (Explicit Congestion Notification) marks per second. High ECN = the switch fabric is pushing back.</li>
+        <li><b>Rty</b> &mdash; Transport retries per second. A key signal of noisy-neighbor interference or link-level errors. &gt;1000/s is critical.</li>
+      </ul>
+    </dd>
+
+    <dt>PCIe</dt>
+    <dd>One square per node representing the aggregate PCIe root complex.
+      <ul>
+        <li><b>Tput</b> &mdash; Total PCIe throughput as % of theoretical max (e.g. 28.4 / 63 GB/s for Gen5 x16). Hover shows per-device breakdown (GPU, NIC, NVMe).</li>
+        <li><b>Sat</b> &mdash; PCIe saturation &mdash; how close the bus is to becoming a bottleneck. Factors in queuing and contention beyond raw throughput.</li>
+      </ul>
+    </dd>
+
+    <dt>CPU / RAM</dt>
+    <dd>Two squares: first is CPU, second is RAM.
+      <ul>
+        <li><b>CPU</b> &mdash; Overall CPU utilization across all cores + a RAM capacity gauge.</li>
+        <li><b>Mem</b> &mdash; Physical memory usage as % of total (e.g. 1420 GB / 2 TB).</li>
+        <li><b>Swp</b> &mdash; Swap usage + PSI (Pressure Stall Information). Any swap usage on a GPU node is a red flag. PSI &gt;10% indicates memory pressure causing stalls.</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<!-- Tooltip -->
+<div class="tooltip" id="tooltip"></div>
+
+<!-- Metrics Modal -->
+<div class="mo-backdrop" id="metrics-overlay" style="display:none">
+  <div class="mo-modal" id="mo-modal">
+    <div class="mo-header">
+      <div class="mo-title" id="mo-title"></div>
+      <button class="mo-close" id="mo-close">&times;</button>
+    </div>
+    <div class="mo-filters" id="mo-filters"></div>
+    <div class="mo-grid" id="mo-grid"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const DATA = {
+  nodes: [
+    {
+      id: "node-1", ip: "10.0.0.1", health: "warn",
+      hw: "H100 80GB SXM", os: "Ubuntu 22.04", uptime: "14d 6h", gpuType: "H100",
+      labels: {
+        "kubernetes.io/arch": "amd64",
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "node-1",
+        "node.kubernetes.io/instance-type": "p4d.24xlarge",
+        "topology.kubernetes.io/region": "us-west-2",
+        "topology.kubernetes.io/zone": "us-west-2a",
+        "nvidia.com/gpu.count": "4",
+        "nvidia.com/gpu.product": "NVIDIA-H100-80GB-HBM3",
+        "nvidia.com/gpu.memory": "81920",
+        "nvidia.com/gpu.family": "hopper",
+        "nvidia.com/gpu.compute.major": "9",
+        "nvidia.com/gpu.compute.minor": "0",
+        "nvidia.com/cuda.driver-version.full": "550.90.07",
+        "nvidia.com/cuda.runtime-version.full": "12.6.1",
+        "feature.node.kubernetes.io/cpu-model.vendor_id": "AMD",
+        "feature.node.kubernetes.io/cpu-model.family": "25",
+        "network.fabric/infiniband": "true",
+        "network.fabric/ib-speed": "HDR",
+        "skypilot.co/accelerator": "H100",
+        "skypilot.co/accelerator-count": "4",
+      },
+      gpus: [
+        { util: 12, mem: 28, temp: 42, pwr: 85, maxPwr: 700, vram: "22.4/80 GB", job: "train-llama-7b", jobId: "A" },
+        { util: 0,  mem: 5,  temp: 31, pwr: 45, maxPwr: 700, vram: "4.0/80 GB",  job: null, jobId: null },
+        { util: 55, mem: 56, temp: 61, pwr: 320, maxPwr: 700, vram: "44.8/80 GB", job: "train-llama-7b", jobId: "A" },
+        { util: 92, mem: 89, temp: 78, pwr: 680, maxPwr: 700, vram: "71.2/80 GB", job: "finetune-mistral", jobId: "B" }
+      ],
+      disks: [
+        { free: 78, iops: 120, maxIops: 500, tput: 2.1, maxTput: 7.0, lat: 0.8, queue: 24, dev: "nvme0", totalTB: 3.84 },
+        { free: 12, iops: 380, maxIops: 500, tput: 5.8, maxTput: 7.0, lat: 2.8, queue: 82, dev: "nvme1", totalTB: 3.84 }
+      ],
+      nics: [
+        { bw: 30, drops: 0, pps: 1.2, dev: "eth0 (100GbE)", tx: 12, rx: 18 },
+        { bw: 50, drops: 0, pps: 0.8, dev: "eth1 (100GbE)", tx: 30, rx: 20 }
+      ],
+      rdma: [
+        { bw: 45, cong: 1.2, retry: 42, dev: "mlx5_0 (200Gb HDR)", gbps: 90 },
+        { bw: 75, cong: 8.4, retry: 142, dev: "mlx5_1 (200Gb HDR)", gbps: 150 }
+      ],
+      pcie: { tput: 45, sat: 38, gbps: 28.4, max: 63, breakdown: "GPU 18.2 / NIC 6.1 / NVMe 4.1" },
+      cpu: { util: 35, cores: 128, model: "AMD EPYC 9654" },
+      ram: { used: 20, total: "2 TB", usedGb: 401, swap: 0, psi: 0.2 }
+    },
+    {
+      id: "node-2", ip: "10.0.0.2", health: "crit",
+      hw: "H100 80GB SXM", os: "Ubuntu 22.04", uptime: "7d 12h", gpuType: "H100",
+      labels: {
+        "kubernetes.io/arch": "amd64",
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "node-2",
+        "node.kubernetes.io/instance-type": "p4d.24xlarge",
+        "topology.kubernetes.io/region": "us-west-2",
+        "topology.kubernetes.io/zone": "us-west-2b",
+        "nvidia.com/gpu.count": "4",
+        "nvidia.com/gpu.product": "NVIDIA-H100-80GB-HBM3",
+        "nvidia.com/gpu.memory": "81920",
+        "nvidia.com/gpu.family": "hopper",
+        "nvidia.com/gpu.compute.major": "9",
+        "nvidia.com/gpu.compute.minor": "0",
+        "nvidia.com/cuda.driver-version.full": "550.90.07",
+        "nvidia.com/cuda.runtime-version.full": "12.6.1",
+        "feature.node.kubernetes.io/cpu-model.vendor_id": "AMD",
+        "feature.node.kubernetes.io/cpu-model.family": "25",
+        "network.fabric/infiniband": "true",
+        "network.fabric/ib-speed": "HDR",
+        "skypilot.co/accelerator": "H100",
+        "skypilot.co/accelerator-count": "4",
+      },
+      gpus: [
+        { util: 95, mem: 94, temp: 82, pwr: 695, maxPwr: 700, vram: "75.2/80 GB", job: "pretrain-gpt-neox", jobId: "C" },
+        { util: 98, mem: 97, temp: 84, pwr: 700, maxPwr: 700, vram: "77.6/80 GB", job: "pretrain-gpt-neox", jobId: "C" },
+        { util: 48, mem: 51, temp: 58, pwr: 280, maxPwr: 700, vram: "40.8/80 GB", job: "eval-benchmark", jobId: "D" },
+        { util: 0,  mem: 3,  temp: 33, pwr: 42, maxPwr: 700, vram: "2.4/80 GB",  job: null, jobId: null }
+      ],
+      disks: [
+        { free: 8,  iops: 480, maxIops: 500, tput: 6.8, maxTput: 7.0, lat: 4.2, queue: 98, dev: "nvme0", totalTB: 3.84 },
+        { free: 11, iops: 460, maxIops: 500, tput: 6.5, maxTput: 7.0, lat: 3.8, queue: 95, dev: "nvme1", totalTB: 3.84 },
+        { free: 35, iops: 320, maxIops: 500, tput: 4.2, maxTput: 7.0, lat: 1.9, queue: 64, dev: "nvme2", totalTB: 3.84 },
+        { free: 5,  iops: 490, maxIops: 500, tput: 6.9, maxTput: 7.0, lat: 5.1, queue: 99, dev: "nvme3", totalTB: 3.84 }
+      ],
+      nics: [
+        { bw: 88, drops: 1247, pps: 4.8, dev: "eth0 (100GbE)", tx: 85, rx: 90 },
+        { bw: 78, drops: 384, pps: 3.1, dev: "eth1 (100GbE)", tx: 80, rx: 75 }
+      ],
+      rdma: [
+        { bw: 90, cong: 22, retry: 2841, dev: "mlx5_0 (200Gb HDR)", gbps: 180 },
+        { bw: 85, cong: 18, retry: 1034, dev: "mlx5_1 (200Gb HDR)", gbps: 170 }
+      ],
+      pcie: { tput: 88, sat: 82, gbps: 55.4, max: 63, breakdown: "GPU 38.1 / NIC 12.2 / NVMe 5.1" },
+      cpu: { util: 82, cores: 128, model: "AMD EPYC 9654" },
+      ram: { used: 71, total: "2 TB", usedGb: 1420, swap: 12, psi: 14.8 }
+    },
+    {
+      id: "node-3", ip: "10.0.0.3", health: "ok",
+      hw: "H100 80GB SXM", os: "Ubuntu 22.04", uptime: "21d 3h", gpuType: "A100",
+      labels: {
+        "kubernetes.io/arch": "amd64",
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "node-3",
+        "node.kubernetes.io/instance-type": "p4de.24xlarge",
+        "topology.kubernetes.io/region": "us-west-2",
+        "topology.kubernetes.io/zone": "us-west-2a",
+        "nvidia.com/gpu.count": "4",
+        "nvidia.com/gpu.product": "NVIDIA-A100-SXM4-80GB",
+        "nvidia.com/gpu.memory": "81920",
+        "nvidia.com/gpu.family": "ampere",
+        "nvidia.com/gpu.compute.major": "8",
+        "nvidia.com/gpu.compute.minor": "0",
+        "nvidia.com/cuda.driver-version.full": "535.129.03",
+        "nvidia.com/cuda.runtime-version.full": "12.2.2",
+        "feature.node.kubernetes.io/cpu-model.vendor_id": "AMD",
+        "feature.node.kubernetes.io/cpu-model.family": "25",
+        "network.fabric/infiniband": "true",
+        "network.fabric/ib-speed": "HDR",
+        "skypilot.co/accelerator": "A100-80GB",
+        "skypilot.co/accelerator-count": "4",
+      },
+      gpus: [
+        { util: 0, mem: 2,  temp: 30, pwr: 42, maxPwr: 700, vram: "1.6/80 GB", job: null, jobId: null },
+        { util: 0, mem: 1,  temp: 29, pwr: 40, maxPwr: 700, vram: "0.8/80 GB", job: null, jobId: null },
+        { util: 0, mem: 1,  temp: 28, pwr: 39, maxPwr: 700, vram: "0.8/80 GB", job: null, jobId: null },
+        { util: 0, mem: 2,  temp: 31, pwr: 43, maxPwr: 700, vram: "1.6/80 GB", job: null, jobId: null }
+      ],
+      disks: [
+        { free: 92, iops: 8,   maxIops: 500, tput: 0.2, maxTput: 7.0, lat: 0.1, queue: 2, dev: "nvme0", totalTB: 3.84 },
+        { free: 95, iops: 4,   maxIops: 500, tput: 0.1, maxTput: 7.0, lat: 0.1, queue: 1, dev: "nvme1", totalTB: 3.84 }
+      ],
+      nics: [
+        { bw: 2,  drops: 0, pps: 0.12, dev: "eth0 (100GbE)", tx: 1, rx: 1 },
+        { bw: 1,  drops: 0, pps: 0.08, dev: "eth1 (100GbE)", tx: 0.5, rx: 0.5 }
+      ],
+      rdma: [
+        { bw: 5,  cong: 0, retry: 0, dev: "mlx5_0 (200Gb HDR)", gbps: 10 },
+        { bw: 4,  cong: 0, retry: 0, dev: "mlx5_1 (200Gb HDR)", gbps: 8 }
+      ],
+      pcie: { tput: 5, sat: 3, gbps: 3.2, max: 63, breakdown: "GPU 1.8 / NIC 0.8 / NVMe 0.6" },
+      cpu: { util: 8, cores: 128, model: "AMD EPYC 9654" },
+      ram: { used: 12, total: "2 TB", usedGb: 245, swap: 0, psi: 0.0 }
+    },
+    {
+      id: "node-4", ip: "10.0.0.4", health: "warn",
+      hw: "H100 80GB SXM", os: "Ubuntu 22.04", uptime: "3d 18h", gpuType: "H100",
+      labels: {
+        "kubernetes.io/arch": "amd64",
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "node-4",
+        "node.kubernetes.io/instance-type": "p4d.24xlarge",
+        "topology.kubernetes.io/region": "us-west-2",
+        "topology.kubernetes.io/zone": "us-west-2c",
+        "nvidia.com/gpu.count": "4",
+        "nvidia.com/gpu.product": "NVIDIA-H100-80GB-HBM3",
+        "nvidia.com/gpu.memory": "81920",
+        "nvidia.com/gpu.family": "hopper",
+        "nvidia.com/gpu.compute.major": "9",
+        "nvidia.com/gpu.compute.minor": "0",
+        "nvidia.com/cuda.driver-version.full": "550.90.07",
+        "nvidia.com/cuda.runtime-version.full": "12.6.1",
+        "feature.node.kubernetes.io/cpu-model.vendor_id": "AMD",
+        "feature.node.kubernetes.io/cpu-model.family": "25",
+        "network.fabric/infiniband": "true",
+        "network.fabric/ib-speed": "HDR",
+        "skypilot.co/accelerator": "H100",
+        "skypilot.co/accelerator-count": "4",
+      },
+      gpus: [
+        { util: 52, mem: 50, temp: 55, pwr: 290, maxPwr: 700, vram: "40.0/80 GB", job: "train-llama-7b", jobId: "A" },
+        { util: 58, mem: 62, temp: 58, pwr: 310, maxPwr: 700, vram: "49.6/80 GB", job: "train-llama-7b", jobId: "A" },
+        { util: 88, mem: 85, temp: 76, pwr: 640, maxPwr: 700, vram: "68.0/80 GB", job: "finetune-mistral", jobId: "B" },
+        { util: 0,  mem: 4,  temp: 32, pwr: 44, maxPwr: 700, vram: "3.2/80 GB",  job: null, jobId: null }
+      ],
+      disks: [
+        { free: 38, iops: 210, maxIops: 500, tput: 4.1, maxTput: 7.0, lat: 1.5, queue: 48, dev: "nvme0", totalTB: 3.84 },
+        { free: 14, iops: 380, maxIops: 500, tput: 5.6, maxTput: 7.0, lat: 2.8, queue: 78, dev: "nvme1", totalTB: 3.84 },
+        { free: 9,  iops: 440, maxIops: 500, tput: 6.2, maxTput: 7.0, lat: 3.5, queue: 91, dev: "nvme2", totalTB: 3.84 },
+        { free: 6,  iops: 470, maxIops: 500, tput: 6.7, maxTput: 7.0, lat: 4.1, queue: 95, dev: "nvme3", totalTB: 3.84 }
+      ],
+      nics: [
+        { bw: 60, drops: 84, pps: 2.4, dev: "eth0 (100GbE)", tx: 50, rx: 70 },
+        { bw: 53, drops: 12, pps: 1.8, dev: "eth1 (100GbE)", tx: 60, rx: 45 }
+      ],
+      rdma: [
+        { bw: 70, cong: 9.1, retry: 892, dev: "mlx5_0 (200Gb HDR)", gbps: 140 },
+        { bw: 45, cong: 2.3, retry: 188, dev: "mlx5_1 (200Gb HDR)", gbps: 90 }
+      ],
+      pcie: { tput: 78, sat: 71, gbps: 49.1, max: 63, breakdown: "GPU 30.2 / NIC 11.8 / NVMe 7.1" },
+      cpu: { util: 46, cores: 128, model: "AMD EPYC 9654" },
+      ram: { used: 76, total: "2 TB", usedGb: 1520, swap: 8, psi: 6.2 }
+    },
+    {
+      id: "node-5", ip: "10.0.0.5", health: "ok",
+      hw: "H100 80GB SXM", os: "Ubuntu 22.04", uptime: "10d 2h", gpuType: "B200",
+      labels: {
+        "kubernetes.io/arch": "amd64",
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "node-5",
+        "node.kubernetes.io/instance-type": "p5.48xlarge",
+        "topology.kubernetes.io/region": "us-west-2",
+        "topology.kubernetes.io/zone": "us-west-2a",
+        "nvidia.com/gpu.count": "8",
+        "nvidia.com/gpu.product": "NVIDIA-B200-192GB-HBM3e",
+        "nvidia.com/gpu.memory": "196608",
+        "nvidia.com/gpu.family": "blackwell",
+        "nvidia.com/gpu.compute.major": "10",
+        "nvidia.com/gpu.compute.minor": "0",
+        "nvidia.com/cuda.driver-version.full": "560.35.03",
+        "nvidia.com/cuda.runtime-version.full": "12.8.0",
+        "feature.node.kubernetes.io/cpu-model.vendor_id": "AMD",
+        "feature.node.kubernetes.io/cpu-model.family": "26",
+        "network.fabric/infiniband": "true",
+        "network.fabric/ib-speed": "NDR",
+        "skypilot.co/accelerator": "B200",
+        "skypilot.co/accelerator-count": "8",
+      },
+      gpus: [
+        { util: 97, mem: 91, temp: 74, pwr: 690, maxPwr: 700, vram: "72.8/80 GB", job: "pretrain-llama-70b", jobId: "A" },
+        { util: 96, mem: 90, temp: 73, pwr: 685, maxPwr: 700, vram: "72.0/80 GB", job: "pretrain-llama-70b", jobId: "A" },
+        { util: 98, mem: 92, temp: 75, pwr: 692, maxPwr: 700, vram: "73.6/80 GB", job: "pretrain-llama-70b", jobId: "A" },
+        { util: 95, mem: 89, temp: 72, pwr: 680, maxPwr: 700, vram: "71.2/80 GB", job: "pretrain-llama-70b", jobId: "A" },
+        { util: 97, mem: 91, temp: 74, pwr: 688, maxPwr: 700, vram: "72.8/80 GB", job: "pretrain-llama-70b", jobId: "A" },
+        { util: 96, mem: 90, temp: 73, pwr: 684, maxPwr: 700, vram: "72.0/80 GB", job: "pretrain-llama-70b", jobId: "A" },
+        { util: 98, mem: 93, temp: 76, pwr: 695, maxPwr: 700, vram: "74.4/80 GB", job: "pretrain-llama-70b", jobId: "A" },
+        { util: 94, mem: 88, temp: 71, pwr: 675, maxPwr: 700, vram: "70.4/80 GB", job: "pretrain-llama-70b", jobId: "A" }
+      ],
+      disks: [
+        { free: 55, iops: 180, maxIops: 500, tput: 3.5, maxTput: 7.0, lat: 1.0, queue: 36, dev: "nvme0", totalTB: 7.68 },
+        { free: 52, iops: 195, maxIops: 500, tput: 3.8, maxTput: 7.0, lat: 1.1, queue: 39, dev: "nvme1", totalTB: 7.68 },
+        { free: 48, iops: 220, maxIops: 500, tput: 4.0, maxTput: 7.0, lat: 1.3, queue: 44, dev: "nvme2", totalTB: 7.68 },
+        { free: 61, iops: 140, maxIops: 500, tput: 2.8, maxTput: 7.0, lat: 0.7, queue: 28, dev: "nvme3", totalTB: 7.68 }
+      ],
+      nics: [
+        { bw: 62, drops: 0, pps: 2.8, dev: "eth0 (100GbE)", tx: 55, rx: 68 },
+        { bw: 58, drops: 0, pps: 2.5, dev: "eth1 (100GbE)", tx: 50, rx: 65 },
+        { bw: 45, drops: 0, pps: 1.9, dev: "eth2 (100GbE)", tx: 38, rx: 52 },
+        { bw: 41, drops: 0, pps: 1.7, dev: "eth3 (100GbE)", tx: 35, rx: 48 }
+      ],
+      rdma: [
+        { bw: 72, cong: 3.1, retry: 85, dev: "mlx5_0 (400Gb NDR)", gbps: 288 },
+        { bw: 68, cong: 2.8, retry: 62, dev: "mlx5_1 (400Gb NDR)", gbps: 272 },
+        { bw: 70, cong: 3.0, retry: 78, dev: "mlx5_2 (400Gb NDR)", gbps: 280 },
+        { bw: 65, cong: 2.5, retry: 55, dev: "mlx5_3 (400Gb NDR)", gbps: 260 }
+      ],
+      pcie: { tput: 62, sat: 55, gbps: 78.1, max: 126, breakdown: "GPU 52.4 / NIC 16.2 / NVMe 9.5" },
+      cpu: { util: 42, cores: 192, model: "AMD EPYC 9754" },
+      ram: { used: 38, total: "2 TB", usedGb: 778, swap: 0, psi: 0.4 }
+    },
+    {
+      id: "node-6", ip: "10.0.0.6", health: "warn",
+      hw: "H100 80GB SXM", os: "Ubuntu 22.04", uptime: "5d 9h", gpuType: "B200",
+      labels: {
+        "kubernetes.io/arch": "amd64",
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": "node-6",
+        "node.kubernetes.io/instance-type": "p5.48xlarge",
+        "topology.kubernetes.io/region": "us-east-1",
+        "topology.kubernetes.io/zone": "us-east-1a",
+        "nvidia.com/gpu.count": "8",
+        "nvidia.com/gpu.product": "NVIDIA-B200-192GB-HBM3e",
+        "nvidia.com/gpu.memory": "196608",
+        "nvidia.com/gpu.family": "blackwell",
+        "nvidia.com/gpu.compute.major": "10",
+        "nvidia.com/gpu.compute.minor": "0",
+        "nvidia.com/cuda.driver-version.full": "560.35.03",
+        "nvidia.com/cuda.runtime-version.full": "12.8.0",
+        "feature.node.kubernetes.io/cpu-model.vendor_id": "AMD",
+        "feature.node.kubernetes.io/cpu-model.family": "26",
+        "network.fabric/infiniband": "true",
+        "network.fabric/ib-speed": "NDR",
+        "skypilot.co/accelerator": "B200",
+        "skypilot.co/accelerator-count": "8",
+      },
+      gpus: [
+        { util: 88, mem: 82, temp: 70, pwr: 620, maxPwr: 700, vram: "65.6/80 GB", job: "finetune-mistral", jobId: "B" },
+        { util: 91, mem: 85, temp: 72, pwr: 645, maxPwr: 700, vram: "68.0/80 GB", job: "finetune-mistral", jobId: "B" },
+        { util: 45, mem: 48, temp: 55, pwr: 260, maxPwr: 700, vram: "38.4/80 GB", job: "eval-benchmark", jobId: "D" },
+        { util: 42, mem: 45, temp: 53, pwr: 245, maxPwr: 700, vram: "36.0/80 GB", job: "eval-benchmark", jobId: "D" },
+        { util: 0,  mem: 3,  temp: 32, pwr: 44, maxPwr: 700, vram: "2.4/80 GB",  job: null, jobId: null },
+        { util: 0,  mem: 2,  temp: 31, pwr: 42, maxPwr: 700, vram: "1.6/80 GB",  job: null, jobId: null },
+        { util: 78, mem: 71, temp: 66, pwr: 520, maxPwr: 700, vram: "56.8/80 GB", job: "train-llama-7b", jobId: "A" },
+        { util: 82, mem: 74, temp: 68, pwr: 550, maxPwr: 700, vram: "59.2/80 GB", job: "train-llama-7b", jobId: "A" }
+      ],
+      disks: [
+        { free: 22, iops: 350, maxIops: 500, tput: 5.2, maxTput: 7.0, lat: 2.4, queue: 72, dev: "nvme0", totalTB: 3.84 },
+        { free: 18, iops: 390, maxIops: 500, tput: 5.8, maxTput: 7.0, lat: 2.9, queue: 80, dev: "nvme1", totalTB: 3.84 },
+        { free: 45, iops: 160, maxIops: 500, tput: 3.0, maxTput: 7.0, lat: 1.1, queue: 32, dev: "nvme2", totalTB: 3.84 },
+        { free: 67, iops: 80,  maxIops: 500, tput: 1.5, maxTput: 7.0, lat: 0.5, queue: 16, dev: "nvme3", totalTB: 3.84 }
+      ],
+      nics: [
+        { bw: 72, drops: 42, pps: 3.2, dev: "eth0 (100GbE)", tx: 65, rx: 78 },
+        { bw: 68, drops: 18, pps: 2.9, dev: "eth1 (100GbE)", tx: 60, rx: 75 },
+        { bw: 35, drops: 0, pps: 1.4, dev: "eth2 (100GbE)", tx: 28, rx: 42 },
+        { bw: 28, drops: 0, pps: 1.1, dev: "eth3 (100GbE)", tx: 22, rx: 34 }
+      ],
+      rdma: [
+        { bw: 78, cong: 6.8, retry: 420, dev: "mlx5_0 (400Gb NDR)", gbps: 312 },
+        { bw: 82, cong: 8.2, retry: 580, dev: "mlx5_1 (400Gb NDR)", gbps: 328 },
+        { bw: 42, cong: 1.2, retry: 28, dev: "mlx5_2 (400Gb NDR)", gbps: 168 },
+        { bw: 38, cong: 0.8, retry: 15, dev: "mlx5_3 (400Gb NDR)", gbps: 152 }
+      ],
+      pcie: { tput: 58, sat: 52, gbps: 73.1, max: 126, breakdown: "GPU 48.2 / NIC 15.8 / NVMe 9.1" },
+      cpu: { util: 55, cores: 192, model: "AMD EPYC 9754" },
+      ram: { used: 52, total: "2 TB", usedGb: 1064, swap: 2, psi: 1.8 }
+    }
+  ]
+};
+
+// ============================================================
+// PROCEDURAL NODE GENERATOR
+// ============================================================
+function generateNodes(count) {
+  const GPU_TEMPLATES = [
+    { weight: 0.40, gpuType: "H100", gpuCount: 4, product: "NVIDIA-H100-80GB-HBM3", family: "hopper", computeMajor: "9", computeMinor: "0", memory: "81920", instance: "p4d.24xlarge", cuda: "550.90.07", cudaRt: "12.6.1", ibSpeed: "HDR", maxPwr: 700, vramTotal: 80, cpuFamily: "25", cores: 128, cpuModel: "AMD EPYC 9654", ramTotal: "2 TB", ramTotalGb: 2048, pcieMax: 63, accel: "H100", accelCount: "4", nicCount: 2, diskCount: 2, rdmaCount: 2, rdmaRate: 200, rdmaDev: "HDR", nicDev: "100GbE" },
+    { weight: 0.20, gpuType: "A100", gpuCount: 4, product: "NVIDIA-A100-SXM4-80GB", family: "ampere", computeMajor: "8", computeMinor: "0", memory: "81920", instance: "p4de.24xlarge", cuda: "535.129.03", cudaRt: "12.2.2", ibSpeed: "HDR", maxPwr: 400, vramTotal: 80, cpuFamily: "25", cores: 128, cpuModel: "AMD EPYC 9654", ramTotal: "2 TB", ramTotalGb: 2048, pcieMax: 63, accel: "A100-80GB", accelCount: "4", nicCount: 2, diskCount: 2, rdmaCount: 2, rdmaRate: 200, rdmaDev: "HDR", nicDev: "100GbE" },
+    { weight: 0.25, gpuType: "B200", gpuCount: 8, product: "NVIDIA-B200-192GB-HBM3e", family: "blackwell", computeMajor: "10", computeMinor: "0", memory: "196608", instance: "p5.48xlarge", cuda: "560.35.03", cudaRt: "12.8.0", ibSpeed: "NDR", maxPwr: 1000, vramTotal: 192, cpuFamily: "26", cores: 192, cpuModel: "AMD EPYC 9754", ramTotal: "4 TB", ramTotalGb: 4096, pcieMax: 126, accel: "B200", accelCount: "8", nicCount: 4, diskCount: 4, rdmaCount: 4, rdmaRate: 400, rdmaDev: "NDR", nicDev: "100GbE" },
+    { weight: 0.15, gpuType: "H100", gpuCount: 8, product: "NVIDIA-H100-80GB-HBM3", family: "hopper", computeMajor: "9", computeMinor: "0", memory: "81920", instance: "p5.48xlarge", cuda: "550.90.07", cudaRt: "12.6.1", ibSpeed: "NDR", maxPwr: 700, vramTotal: 80, cpuFamily: "25", cores: 192, cpuModel: "AMD EPYC 9754", ramTotal: "4 TB", ramTotalGb: 4096, pcieMax: 126, accel: "H100", accelCount: "8", nicCount: 4, diskCount: 4, rdmaCount: 4, rdmaRate: 400, rdmaDev: "NDR", nicDev: "100GbE" },
+  ];
+  const ZONES = ["us-west-2a", "us-west-2b", "us-west-2c", "us-east-1a", "us-east-1b"];
+  const JOB_PREFIXES = [
+    "train-llama-7b", "train-llama-70b", "train-llama-405b",
+    "finetune-mistral", "finetune-qwen", "finetune-gemma",
+    "pretrain-gpt-neox", "pretrain-mamba", "pretrain-rwkv",
+    "eval-mmlu", "eval-humaneval", "eval-benchmark",
+    "data-preprocessing", "data-tokenize", "data-dedup",
+    "rlhf-reward-model", "rlhf-ppo", "dpo-alignment",
+    "inference-serve", "inference-batch", "vllm-serve",
+    "embed-bge", "embed-e5", "distill-student",
+  ];
+
+  function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function hexId() { return rand(0, 0xFFFF).toString(16).padStart(4, '0'); }
+
+  // Generate a large pool of distinct jobs (~60 unique jobs)
+  const JOBS = [];
+  JOB_PREFIXES.forEach(prefix => {
+    const numRuns = rand(1, 4);
+    for (let r = 0; r < numRuns; r++) {
+      // Random priority -1000..1000 and start time within last 14 days
+      const pri = pick([999, 500, 0, -500]);
+      const start = new Date(Date.now() - rand(600, 14 * 24 * 3600) * 1000);
+      JOBS.push({ name: `${prefix}-${hexId()}`, id: hexId(), priority: pri, startTime: start.toISOString() });
+    }
+  });
+  function pickTemplate() {
+    const r = Math.random();
+    let cum = 0;
+    for (const t of GPU_TEMPLATES) { cum += t.weight; if (r <= cum) return t; }
+    return GPU_TEMPLATES[0];
+  }
+
+  const nodes = [];
+  for (let i = 7; i <= count; i++) {
+    const t = pickTemplate();
+    const zone = pick(ZONES);
+    const region = zone.slice(0, -1);
+
+    // Node profile: idle / loaded / mixed
+    const profile = Math.random();
+    let utilBase, memBase, tempBase, pwrFrac;
+    if (profile < 0.10) {
+      utilBase = 0; memBase = 3; tempBase = 30; pwrFrac = 0.06;
+    } else if (profile < 0.30) {
+      utilBase = 90; memBase = 85; tempBase = 72; pwrFrac = 0.90;
+    } else {
+      utilBase = rand(30, 70); memBase = rand(30, 70); tempBase = rand(45, 65); pwrFrac = rand(30, 70) / 100;
+    }
+
+    const healthRoll = Math.random();
+    const health = healthRoll < 0.60 ? "ok" : healthRoll < 0.90 ? "warn" : "crit";
+
+    // Pick jobs for this node
+    let nodeJobs = [];
+    if (utilBase > 0) {
+      const numJobs = rand(1, 3);
+      for (let j = 0; j < numJobs; j++) nodeJobs.push(pick(JOBS));
+    }
+
+    // GPUs
+    const gpus = [];
+    for (let g = 0; g < t.gpuCount; g++) {
+      let util, mem, temp, pwr, jobs = [];
+      if (utilBase === 0) {
+        util = 0; mem = rand(1, 4); temp = rand(28, 33); pwr = rand(38, 48);
+      } else if (Math.random() < 0.12) {
+        util = 0; mem = rand(2, 6); temp = rand(29, 34); pwr = rand(40, 50);
+      } else {
+        util = Math.min(100, Math.max(1, utilBase + rand(-20, 20)));
+        mem = Math.min(100, Math.max(5, memBase + rand(-15, 15)));
+        temp = Math.min(88, Math.max(35, tempBase + rand(-10, 10)));
+        pwr = Math.min(t.maxPwr, Math.max(60, Math.round(t.maxPwr * (pwrFrac + (Math.random() - 0.5) * 0.3))));
+        // ~15% chance of fractional GPU (2 jobs sharing)
+        if (Math.random() < 0.15 && nodeJobs.length >= 2) {
+          const j1 = nodeJobs[0], j2 = nodeJobs[1];
+          jobs = [{ name: j1.name, id: j1.id, priority: j1.priority, startTime: j1.startTime },
+                  { name: j2.name, id: j2.id, priority: j2.priority, startTime: j2.startTime }];
+        } else {
+          const j = pick(nodeJobs);
+          jobs = [{ name: j.name, id: j.id, priority: j.priority, startTime: j.startTime }];
+        }
+      }
+      const vramUsed = (mem / 100 * t.vramTotal).toFixed(1);
+      gpus.push({ util, mem, temp, pwr, maxPwr: t.maxPwr, vram: `${vramUsed}/${t.vramTotal} GB`, jobs });
+    }
+
+    // Disks
+    const disks = [];
+    for (let d = 0; d < t.diskCount; d++) {
+      const free = utilBase === 0 ? rand(80, 98) : rand(5, 85);
+      disks.push({
+        free, iops: Math.round((100 - free) / 100 * 450 + rand(0, 50)), maxIops: 500,
+        tput: parseFloat(((100 - free) / 100 * 6.5 + Math.random() * 0.5).toFixed(1)), maxTput: 7.0,
+        lat: parseFloat(((100 - free) / 100 * 4 + Math.random()).toFixed(1)),
+        queue: Math.round((100 - free) / 100 * 95 + rand(0, 5)),
+        dev: `nvme${d}`, totalTB: t.gpuCount >= 8 ? 7.68 : 3.84
+      });
+    }
+
+    // NICs
+    const nics = [];
+    for (let n = 0; n < t.nicCount; n++) {
+      const bw = utilBase === 0 ? rand(1, 5) : rand(15, 90);
+      const drops = health === "crit" ? rand(100, 2000) : health === "warn" ? rand(0, 200) : rand(0, 10);
+      nics.push({ bw, drops, pps: parseFloat((bw / 25 + Math.random()).toFixed(1)),
+        dev: `eth${n} (${t.nicDev})`, tx: Math.round(bw * 0.45 + rand(0, 10)), rx: Math.round(bw * 0.55 + rand(0, 10)) });
+    }
+
+    // RDMA
+    const rdma = [];
+    for (let r = 0; r < t.rdmaCount; r++) {
+      const bw = utilBase === 0 ? rand(2, 8) : rand(20, 95);
+      const cong = health === "crit" ? parseFloat((rand(10, 25) + Math.random()).toFixed(1))
+        : parseFloat((rand(0, 8) + Math.random()).toFixed(1));
+      const retry = health === "crit" ? rand(500, 3000) : rand(0, 500);
+      rdma.push({ bw, cong, retry, dev: `mlx5_${r} (${t.rdmaRate}Gb ${t.rdmaDev})`,
+        gbps: Math.round(bw / 100 * t.rdmaRate) });
+    }
+
+    // PCIe
+    const pcieTput = utilBase === 0 ? rand(3, 8) : rand(20, 90);
+    const pcieSat = Math.max(0, pcieTput - rand(3, 12));
+    const pcieGbps = parseFloat((pcieTput / 100 * t.pcieMax).toFixed(1));
+
+    // CPU / RAM
+    const cpuUtil = utilBase === 0 ? rand(2, 10) : rand(15, 85);
+    const ramUsedPct = utilBase === 0 ? rand(8, 18) : rand(20, 80);
+    const ramUsedGb = Math.round(ramUsedPct / 100 * t.ramTotalGb);
+    const swap = health === "crit" ? rand(5, 20) : health === "warn" ? rand(0, 8) : 0;
+    const psi = swap > 5 ? parseFloat((rand(2, 18) + Math.random()).toFixed(1))
+      : parseFloat((Math.random() * 2).toFixed(1));
+
+    nodes.push({
+      id: `node-${i}`, ip: `10.0.${Math.floor(i / 256)}.${i % 256}`, health,
+      hw: `${t.gpuType} SXM`, os: "Ubuntu 22.04",
+      uptime: `${rand(1, 30)}d ${rand(0, 23)}h`, gpuType: t.gpuType,
+      labels: {
+        "kubernetes.io/arch": "amd64", "kubernetes.io/os": "linux",
+        "kubernetes.io/hostname": `node-${i}`,
+        "node.kubernetes.io/instance-type": t.instance,
+        "topology.kubernetes.io/region": region, "topology.kubernetes.io/zone": zone,
+        "nvidia.com/gpu.count": String(t.gpuCount), "nvidia.com/gpu.product": t.product,
+        "nvidia.com/gpu.memory": t.memory, "nvidia.com/gpu.family": t.family,
+        "nvidia.com/gpu.compute.major": t.computeMajor, "nvidia.com/gpu.compute.minor": t.computeMinor,
+        "nvidia.com/cuda.driver-version.full": t.cuda, "nvidia.com/cuda.runtime-version.full": t.cudaRt,
+        "feature.node.kubernetes.io/cpu-model.vendor_id": "AMD",
+        "feature.node.kubernetes.io/cpu-model.family": t.cpuFamily,
+        "network.fabric/infiniband": "true", "network.fabric/ib-speed": t.ibSpeed,
+        "skypilot.co/accelerator": t.accel, "skypilot.co/accelerator-count": t.accelCount,
+      },
+      gpus, disks, nics, rdma,
+      pcie: { tput: pcieTput, sat: pcieSat, gbps: pcieGbps, max: t.pcieMax,
+        breakdown: `GPU ${(pcieGbps * 0.65).toFixed(1)} / NIC ${(pcieGbps * 0.22).toFixed(1)} / NVMe ${(pcieGbps * 0.13).toFixed(1)}` },
+      cpu: { util: cpuUtil, cores: t.cores, model: t.cpuModel },
+      ram: { used: ramUsedPct, total: t.ramTotal, usedGb: ramUsedGb, swap, psi }
+    });
+  }
+  return nodes;
+}
+
+// Populate with 200 nodes total (6 original + 194 generated)
+DATA.nodes = DATA.nodes.concat(generateNodes(200));
+
+// Migrate original nodes: convert job/jobId to jobs array with priority + startTime
+DATA.nodes.forEach(n => {
+  n.gpus.forEach(g => {
+    if (!g.jobs) {
+      g.jobs = g.job ? [{
+        name: g.job, id: g.jobId,
+        priority: [999, 500, 0, -500][Math.floor(Math.random() * 4)],
+        startTime: new Date(Date.now() - Math.floor(Math.random() * 14 * 24 * 3600) * 1000).toISOString()
+      }] : [];
+      delete g.job; delete g.jobId;
+    }
+  });
+});
+
+// ============================================================
+// COLOR HELPERS
+// ============================================================
+// Hash-based job colors: 16 visually distinct colors
+const JOB_PALETTE = [
+  { bg: '#6366f1', bd: '#4f46e5' }, { bg: '#06b6d4', bd: '#0891b2' },
+  { bg: '#8b5cf6', bd: '#7c3aed' }, { bg: '#ec4899', bd: '#db2777' },
+  { bg: '#f97316', bd: '#ea580c' }, { bg: '#14b8a6', bd: '#0d9488' },
+  { bg: '#ef4444', bd: '#dc2626' }, { bg: '#3b82f6', bd: '#2563eb' },
+  { bg: '#84cc16', bd: '#65a30d' }, { bg: '#a855f7', bd: '#9333ea' },
+  { bg: '#f59e0b', bd: '#d97706' }, { bg: '#22c55e', bd: '#16a34a' },
+  { bg: '#e11d48', bd: '#be123c' }, { bg: '#0ea5e9', bd: '#0284c7' },
+  { bg: '#d946ef', bd: '#c026d3' }, { bg: '#64748b', bd: '#475569' },
+];
+function jobHash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return Math.abs(h); }
+function jobColor(name) { return JOB_PALETTE[jobHash(name) % JOB_PALETTE.length]; }
+function jobLabel(name) { return (jobHash(name) & 0xFF).toString(16).padStart(2, '0'); }
+
+function heatColor(v, thresholds) {
+  const [lo, hi] = thresholds || [25, 65];
+  if (v === 0) return "idle";
+  if (v <= lo) return "green";
+  if (v <= hi) return "yellow";
+  return "red";
+}
+
+function battColor(v, thresholds) {
+  // v = remaining %. Higher = better for disk free; invert for "used" metrics.
+  const [lo, hi] = thresholds || [30, 60];
+  if (v >= hi) return "green";
+  if (v >= lo) return "yellow";
+  return "red";
+}
+
+function healthColor(h) {
+  return { ok: "#22c55e", warn: "#f59e0b", crit: "#ef4444" }[h] || "#d4d4d8";
+}
+
+function healthBadge(h) {
+  const map = {
+    ok:   { label: "OK",   bg: "#ecfdf5", border: "#a7f3d0", color: "#15803d" },
+    warn: { label: "WARN", bg: "#fffbeb", border: "#fde68a", color: "#92400e" },
+    crit: { label: "CRIT", bg: "#fef2f2", border: "#fecaca", color: "#b91c1c" },
+  };
+  const s = map[h] || map.ok;
+  return `<span class="health-badge" style="background:${s.bg};border:0.5px solid ${s.border};color:${s.color}">${s.label}</span>`;
+}
+
+// ============================================================
+// PAGE SIZE STATE
+// ============================================================
+let pageSize = 25;
+let activeGroupBy = null; // null, "gpu", or a label key string
+
+function getGroupKey(node) {
+  if (!activeGroupBy) return null;
+  if (activeGroupBy === 'gpu') return `${node.gpuType}:${node.gpus.length}`;
+  // Label key grouping
+  return node.labels[activeGroupBy] || 'unknown';
+}
+
+function groupNodes(nodes) {
+  const groups = new Map();
+  nodes.forEach(n => {
+    const key = getGroupKey(n);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(n);
+  });
+  // Sort by group size descending
+  return new Map([...groups.entries()].sort((a, b) => b[1].length - a[1].length));
+}
+
+// ============================================================
+// ACTIVE TABS STATE
+// ============================================================
+const activeTabs = {
+  gpu: "util",
+  disk: "free",
+  net: "bw",
+  rdma: "bw",
+  pcie: "tput",
+  cpuram: "cpu",
+};
+
+// ============================================================
+// SQUARE RENDERERS
+// ============================================================
+function heatSquare(value, tooltipHtml, thresholds) {
+  if (value === 0) {
+    return `<div class="sq sq-batt" style="border-color:#d4d4d8" data-tip="${esc(tooltipHtml)}"><div class="sq-batt-fill green" style="height:0%"></div></div>`;
+  }
+  return usedBattSquare(value, tooltipHtml, thresholds);
+}
+
+function battSquare(value, tooltipHtml, thresholds) {
+  const c = battColor(value, thresholds);
+  const h = Math.max(1, (value / 100) * 100);
+  return `<div class="sq sq-batt" data-tip="${esc(tooltipHtml)}"><div class="sq-batt-fill ${c}" style="height:${h}%"></div></div>`;
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function jobTip(gpu, j) {
+  return `<b>GPU ${gpu._idx}</b>\nJob: ${j.name}\nPriority: ${j.priority}\nStarted: ${fmtTime(j.startTime)} (local tz)\nVRAM: ${gpu.vram}\nUtil: ${gpu.util}%`;
+}
+
+function jobSquare(gpu) {
+  const jobs = gpu.jobs || [];
+  if (jobs.length === 0) {
+    const tip = `<b>GPU ${gpu._idx}</b>\nNo job assigned\nVRAM: ${gpu.vram}`;
+    return `<div class="sq sq-job job-none" data-tip="${esc(tip)}"></div>`;
+  }
+  if (jobs.length === 1) {
+    const tip = jobTip(gpu, jobs[0]);
+    const c = jobColor(jobs[0].name);
+    const lbl = jobLabel(jobs[0].name);
+    const faded = activeJobFilter && activeJobFilter !== jobs[0].name ? 'opacity:0.25;' : '';
+    return `<div class="sq sq-job" style="background:${c.bg};border-color:${c.bd};${faded}" data-tip="${esc(tip)}" data-job="${esc(jobs[0].name)}">${lbl}</div>`;
+  }
+  // Multiple jobs — one square per job, stacked vertically in a column
+  const squares = jobs.map(j => {
+    const tip = jobTip(gpu, j);
+    const c = jobColor(j.name);
+    const faded = activeJobFilter && activeJobFilter !== j.name ? 'opacity:0.25;' : '';
+    return `<div class="sq sq-job" style="background:${c.bg};border-color:${c.bd};${faded}" data-tip="${esc(tip)}" data-job="${esc(j.name)}">${jobLabel(j.name)}</div>`;
+  }).join('');
+  return `<div class="sq-col">${squares}</div>`;
+}
+
+function esc(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+// ============================================================
+// CELL RENDERERS PER TAB
+// ============================================================
+function renderGpuCell(node) {
+  const tab = activeTabs.gpu;
+  return node.gpus.map((g, i) => {
+    g._idx = i;
+    if (tab === "job") return jobSquare(g);
+    const map = {
+      util: () => goodBattSquare(g.util, `<b>GPU ${i}</b>\nUtil: ${g.util}%\nVRAM: ${g.vram}\nTemp: ${g.temp}°C\nPower: ${g.pwr}/${g.maxPwr}W`),
+      mem:  () => usedBattSquare(g.mem,  `<b>GPU ${i} VRAM</b>\n${g.vram} (${g.mem}%)`),
+      temp: () => { const maxT = 90; return usedBattSquare(Math.round(g.temp/maxT*100), `<b>GPU ${i} Temp</b>\n${g.temp} / ${maxT}°C`, [56, 78]); },
+      pwr:  () => heatSquare(Math.round(g.pwr/g.maxPwr*100), `<b>GPU ${i} Power</b>\n${g.pwr}W / ${g.maxPwr}W`, [40, 70]),
+    };
+    return (map[tab] || map.util)();
+  }).join('');
+}
+
+function usedBattSquare(usedPct, tooltipHtml, thresholds) {
+  // higher = worse: green when low, red when full
+  const [lo, hi] = thresholds || [40, 75];
+  const c = usedPct <= lo ? "green" : usedPct <= hi ? "yellow" : "red";
+  const h = Math.max(1, usedPct);
+  return `<div class="sq sq-batt" data-tip="${esc(tooltipHtml)}"><div class="sq-batt-fill ${c}" style="height:${h}%"></div></div>`;
+}
+
+function goodBattSquare(pct, tooltipHtml, thresholds) {
+  // higher = better: green when high, red when low
+  const [lo, hi] = thresholds || [25, 65];
+  const c = pct >= hi ? "green" : pct >= lo ? "yellow" : pct === 0 ? "green" : "red";
+  if (pct === 0) {
+    return `<div class="sq sq-batt" style="border-color:#d4d4d8" data-tip="${esc(tooltipHtml)}"><div class="sq-batt-fill green" style="height:0%"></div></div>`;
+  }
+  const h = Math.max(1, pct);
+  return `<div class="sq sq-batt" data-tip="${esc(tooltipHtml)}"><div class="sq-batt-fill ${c}" style="height:${h}%"></div></div>`;
+}
+
+function renderDiskCell(node) {
+  const tab = activeTabs.disk;
+  return node.disks.map((d, i) => {
+    const used = 100 - d.free;
+    const usedTB = (used / 100 * d.totalTB).toFixed(1);
+    const totalTB = d.totalTB.toFixed(1);
+    const map = {
+      free: () => usedBattSquare(used, `<b>${d.dev} (${totalTB} TB)</b>\nUsed: ${usedTB} / ${totalTB} TB (${used}%)\nFree: ${d.free}%\nIOPS: ${d.iops}K\nTput: ${d.tput} GB/s\nLat p99: ${d.lat}ms\nQueue: ${d.queue}%`),
+      iops: () => heatSquare(Math.round(d.iops/d.maxIops*100), `<b>${d.dev}</b>\nIOPS: ${d.iops}K / ${d.maxIops}K\nQueue: ${d.queue}%`, [40, 70]),
+      tput: () => heatSquare(Math.round(d.tput/d.maxTput*100), `<b>${d.dev}</b>\nTput: ${d.tput} / ${d.maxTput} GB/s\nLat p99: ${d.lat}ms`, [40, 70]),
+    };
+    return (map[tab] || map.free)();
+  }).join('');
+}
+
+function renderNetCell(node) {
+  const tab = activeTabs.net;
+  return node.nics.map((n, i) => {
+    const map = {
+      bw:    () => heatSquare(n.bw, `<b>${n.dev}</b>\nBW: ${n.bw}%\nTX: ${n.tx} Gb/s\nRX: ${n.rx} Gb/s\nPPS: ${n.pps}M`, [40, 70]),
+      drops: () => heatSquare(n.drops > 500 ? 100 : n.drops > 50 ? 60 : n.drops > 0 ? 30 : 0,
+        `<b>${n.dev}</b>\nDrops: ${n.drops.toLocaleString()}\nPPS: ${n.pps}M`, [25, 65]),
+    };
+    return (map[tab] || map.bw)();
+  }).join('');
+}
+
+function renderRdmaCell(node) {
+  const tab = activeTabs.rdma;
+  return node.rdma.map((r, i) => {
+    const map = {
+      bw:    () => heatSquare(r.bw, `<b>${r.dev}</b>\nBW: ${r.gbps} Gb/s (${r.bw}%)\nECN: ${r.cong}K/s\nRetries: ${r.retry}/s`, [40, 70]),
+      cong:  () => heatSquare(r.cong > 10 ? 100 : r.cong > 2 ? 60 : r.cong > 0 ? 25 : 0,
+        `<b>${r.dev}</b>\nECN: ${r.cong}K/s\nRetries: ${r.retry}/s`, [25, 65]),
+      retry: () => heatSquare(r.retry > 1000 ? 100 : r.retry > 200 ? 60 : r.retry > 0 ? 25 : 0,
+        `<b>${r.dev}</b>\nRetries: ${r.retry}/s\nECN: ${r.cong}K/s`, [25, 65]),
+    };
+    return (map[tab] || map.bw)();
+  }).join('');
+}
+
+function renderPcieCell(node) {
+  const tab = activeTabs.pcie;
+  const p = node.pcie;
+  const map = {
+    tput: () => heatSquare(p.tput, `<b>PCIe Gen5 x16</b>\nTput: ${p.gbps} / ${p.max} GB/s (${p.tput}%)\n${p.breakdown}`, [40, 70]),
+    sat:  () => heatSquare(p.sat,  `<b>PCIe Saturation</b>\n${p.sat}%\nTput: ${p.gbps} GB/s`, [40, 70]),
+  };
+  return (map[tab] || map.tput)();
+}
+
+function renderCpuRamCell(node) {
+  const tab = activeTabs.cpuram;
+  const c = node.cpu, r = node.ram;
+  const map = {
+    cpu:  () => `<span style="font-size:10px;color:#6b7280;font-weight:400;margin-right:3px">${c.cores}c</span>`
+              + heatSquare(c.util, `<b>CPU</b>\n${c.model} (${c.cores} cores)\nAvg Util: ${c.util}%`)
+              + usedBattSquare(r.used, `<b>RAM</b>\n${r.usedGb} GB / ${r.total} (${r.used}%)\nSwap: ${r.swap}%\nPSI: ${r.psi}%`),
+    swap: () => `<span style="font-size:10px;color:#6b7280;font-weight:400;margin-right:3px">${c.cores}c</span>`
+              + heatSquare(r.swap, `<b>Swap</b>\n${r.swap}%\nPSI: ${r.psi}%`, [5, 20])
+              + heatSquare(r.psi > 10 ? 80 : r.psi > 2 ? 40 : r.psi > 0 ? 15 : 0,
+                `<b>PSI (Pressure Stall)</b>\n${r.psi}%`, [20, 50]),
+  };
+  return (map[tab] || map.cpu)();
+}
+
+// ============================================================
+// RENDER HELPERS
+// ============================================================
+function renderNodeRow(node) {
+  const labelTip = Object.entries(node.labels).map(([k,v]) => `${k}=${v}`).join('\n');
+  return `
+  <tr data-node-id="${node.id}">
+    <td>
+      <div class="node-cell">
+        <span class="node-name" data-tip="${esc(labelTip)}">${node.id}</span>
+        <span class="node-ip">${node.ip}</span>
+      </div>
+    </td>
+    <td style="font-size:10px;color:#6b7280;font-weight:400;white-space:nowrap">${node.gpuType}:${node.gpus.length}</td>
+    <td><div class="sq-row">${renderGpuCell(node)}</div></td>
+    <td><div class="sq-row">${renderDiskCell(node)}</div></td>
+    <td><div class="sq-row">${renderNetCell(node)}</div></td>
+    <td><div class="sq-row">${renderRdmaCell(node)}</div></td>
+    <td><div class="sq-row">${renderPcieCell(node)}</div></td>
+    <td><div class="sq-row">${renderCpuRamCell(node)}</div></td>
+  </tr>`;
+}
+
+function computeSummaryCells(nodes, wrapClass) {
+  const allGpus = nodes.flatMap(n => n.gpus);
+  const allDisks = nodes.flatMap(n => n.disks);
+  const allNics = nodes.flatMap(n => n.nics);
+  const allRdma = nodes.flatMap(n => n.rdma);
+  const avg = (arr, fn) => arr.length ? Math.round(arr.reduce((s, x) => s + fn(x), 0) / arr.length) : 0;
+
+  const gpuTypes = {};
+  nodes.forEach(n => { gpuTypes[n.gpuType] = (gpuTypes[n.gpuType] || 0) + n.gpus.length; });
+  const gpuBreakdown = Object.entries(gpuTypes).sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k}:${v}`).join(' · ');
+
+  const gt = activeTabs.gpu;
+  let gpuStat;
+  if (gt === 'util') gpuStat = `avg ${avg(allGpus, g => g.util)}%`;
+  else if (gt === 'mem') gpuStat = `avg ${avg(allGpus, g => g.mem)}%`;
+  else if (gt === 'temp') gpuStat = `avg ${avg(allGpus, g => g.temp)}°C`;
+  else if (gt === 'pwr') gpuStat = `avg ${avg(allGpus, g => g.pwr / g.maxPwr * 100)}%`;
+  else gpuStat = `${allGpus.filter(g => g.jobs && g.jobs.length).length} / ${allGpus.length}`;
+
+  const diskStat = `avg ${avg(allDisks, d => 100 - d.free)}%`;
+
+  const nt = activeTabs.net;
+  const netStat = nt === 'bw'
+    ? `avg ${avg(allNics, n => n.bw)}%`
+    : `${allNics.reduce((s, n) => s + n.drops, 0).toLocaleString()} drops`;
+
+  const rt = activeTabs.rdma;
+  let rdmaStat;
+  if (rt === 'bw') rdmaStat = `avg ${avg(allRdma, r => r.bw)}%`;
+  else if (rt === 'cong') rdmaStat = `avg ${(allRdma.reduce((s, r) => s + r.cong, 0) / allRdma.length).toFixed(1)}K/s`;
+  else rdmaStat = `${(allRdma.reduce((s, r) => s + r.retry, 0) / 1000).toFixed(1)}K/s`;
+
+  const pt = activeTabs.pcie;
+  const pcieStat = pt === 'tput'
+    ? `avg ${avg(nodes, n => n.pcie.tput)}%`
+    : `avg ${avg(nodes, n => n.pcie.sat)}%`;
+
+  const ct = activeTabs.cpuram;
+  let cpuramStat;
+  if (ct === 'cpu') cpuramStat = `${avg(nodes, n => n.cpu.util)}% · ${avg(nodes, n => n.ram.used)}%`;
+  else cpuramStat = `avg ${(nodes.reduce((s, n) => s + n.ram.swap, 0) / nodes.length).toFixed(1)}%`;
+
+  const wc = wrapClass || 'wrap-cell';
+  return `
+    <td>${nodes.length} nodes</td>
+    <td class="${wc}">${gpuBreakdown}</td>
+    <td>${gpuStat}</td>
+    <td>${diskStat}</td>
+    <td>${netStat}</td>
+    <td>${rdmaStat}</td>
+    <td>${pcieStat}</td>
+    <td>${cpuramStat}</td>`;
+}
+
+// ============================================================
+// RENDER TABLE
+// ============================================================
+function render() {
+  const tbody = document.getElementById('table-body');
+  const tfoot = document.getElementById('table-foot');
+  const filteredNodes = getFilteredNodes();
+
+  if (!activeGroupBy) {
+    // Flat mode — current behavior
+    const visibleNodes = filteredNodes.slice(0, pageSize);
+    tbody.innerHTML = visibleNodes.map(renderNodeRow).join('');
+    tfoot.innerHTML = filteredNodes.length
+      ? `<tr>${computeSummaryCells(filteredNodes)}</tr>` : '';
+  } else {
+    // Grouped mode
+    const groups = groupNodes(filteredNodes);
+    let html = '';
+    let remaining = pageSize;
+    let totalAcrossGroups = 0;
+    groups.forEach((nodes, key) => {
+      if (remaining <= 0) return;
+      totalAcrossGroups += nodes.length;
+      html += `<tr class="group-header-row"><td colspan="8">${esc(key)}<span class="group-count">${nodes.length} nodes</span></td></tr>`;
+      const slice = nodes.slice(0, remaining);
+      html += slice.map(renderNodeRow).join('');
+      remaining -= slice.length;
+      html += `<tr class="group-summary-row">${computeSummaryCells(nodes, 'wrap-cell')}</tr>`;
+    });
+    // Check mutual exclusivity
+    if (totalAcrossGroups > filteredNodes.length) {
+      html = `<tr class="group-overlap-note"><td colspan="8">Note: groups are not mutually exclusive — some nodes appear in multiple groups (${totalAcrossGroups} placements across ${filteredNodes.length} unique nodes)</td></tr>` + html;
+    }
+    tbody.innerHTML = html;
+    tfoot.innerHTML = '';
+  }
+
+  // Update header subtitle
+  const totalGpus = DATA.nodes.reduce((s, n) => s + n.gpus.length, 0);
+  document.querySelector('.header-left p').textContent =
+    `${DATA.nodes.length} nodes · ${totalGpus} GPUs · Updated 14:32 UTC`;
+
+  bindTooltips();
+}
+
+// ============================================================
+// TABS
+// ============================================================
+document.querySelectorAll('.col-tabs').forEach(tabGroup => {
+  const group = tabGroup.dataset.group;
+  tabGroup.querySelectorAll('.col-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabGroup.querySelectorAll('.col-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activeTabs[group] = btn.dataset.tab;
+      render();
+    });
+  });
+});
+
+// ============================================================
+// PAGE-SIZE SELECTOR
+// ============================================================
+document.querySelectorAll('.page-size-bar .page-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.page-size-bar .page-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    pageSize = parseInt(btn.dataset.size, 10);
+    render();
+  });
+});
+
+// ============================================================
+// GROUP-BY SELECTOR
+// ============================================================
+(function populateGroupSelect() {
+  const sel = document.getElementById('group-select');
+  const keys = getAllLabelKeys();
+  keys.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = `label:${k}`;
+    opt.textContent = k;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', () => {
+    const v = sel.value;
+    if (!v) activeGroupBy = null;
+    else if (v === 'gpu') activeGroupBy = 'gpu';
+    else if (v.startsWith('label:')) activeGroupBy = v.slice(6);
+    else activeGroupBy = v;
+    render();
+  });
+})();
+
+// ============================================================
+// TOOLTIPS
+// ============================================================
+const tooltipEl = document.getElementById('tooltip');
+
+// Use event delegation so tooltips work for both static tabs and dynamic squares
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('[data-tip]');
+  if (!el) return;
+  const raw = el.dataset.tip;
+  const html = raw
+    .replace(/&lt;b&gt;/g, '<b style="color:#f1f5f9">')
+    .replace(/&lt;\/b&gt;/g, '</b>')
+    .replace(/\n/g, '<br>');
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add('visible');
+  positionTooltip(e);
+});
+document.addEventListener('mousemove', e => {
+  if (e.target.closest('[data-tip]')) positionTooltip(e);
+});
+document.addEventListener('mouseout', e => {
+  const el = e.target.closest('[data-tip]');
+  if (!el || !el.contains(e.relatedTarget)) {
+    tooltipEl.classList.remove('visible');
+  }
+});
+
+function bindTooltips() { /* now handled by delegation */ }
+
+// Job square click → filter by job
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-job]');
+  if (!el) return;
+  const job = el.dataset.job;
+  activeJobFilter = activeJobFilter === job ? null : job;
+  renderFilterChips();
+  updateMatchCount();
+  render();
+});
+
+function positionTooltip(e) {
+  const tt = tooltipEl;
+  const pad = 10;
+  let x = e.clientX + pad;
+  let y = e.clientY + pad;
+  // Keep on screen
+  const rect = tt.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth - pad) x = e.clientX - rect.width - pad;
+  if (y + rect.height > window.innerHeight - pad) y = e.clientY - rect.height - pad;
+  tt.style.left = x + 'px';
+  tt.style.top = y + 'px';
+}
+
+// ============================================================
+// LABEL SEARCH & FILTER
+// ============================================================
+const activeFilters = []; // array of "key=value" strings
+let activeJobFilter = null; // job name string or null
+
+function getFilteredNodes() {
+  let nodes = DATA.nodes;
+  const matchedIds = getMatchedNodeIds();
+  if (matchedIds) nodes = nodes.filter(n => matchedIds.has(n.id));
+  if (activeJobFilter) nodes = nodes.filter(n => n.gpus.some(g => g.jobs && g.jobs.some(j => j.name === activeJobFilter)));
+  return nodes;
+}
+
+function getAllLabelEntries() {
+  const entries = new Map(); // "key=value" -> count of nodes
+  DATA.nodes.forEach(node => {
+    Object.entries(node.labels).forEach(([k, v]) => {
+      const entry = `${k}=${v}`;
+      entries.set(entry, (entries.get(entry) || 0) + 1);
+    });
+  });
+  return entries;
+}
+
+function getAllLabelKeys() {
+  const keys = new Set();
+  DATA.nodes.forEach(node => {
+    Object.keys(node.labels).forEach(k => keys.add(k));
+  });
+  return [...keys].sort();
+}
+
+function getMatchedNodeIds() {
+  if (activeFilters.length === 0) return null; // null = show all
+  const matched = new Set();
+  DATA.nodes.forEach(node => {
+    const matches = activeFilters.every(f => {
+      const [fk, fv] = f.split('=');
+      return node.labels[fk] === fv;
+    });
+    if (matches) matched.add(node.id);
+  });
+  return matched;
+}
+
+function updateMatchCount() {
+  const el = document.getElementById('match-count');
+  if (activeFilters.length === 0 && !activeJobFilter) { el.textContent = ''; return; }
+  const filtered = getFilteredNodes();
+  el.textContent = `${filtered.length} / ${DATA.nodes.length} nodes`;
+}
+
+function renderFilterChips() {
+  const container = document.getElementById('filter-chips');
+  let html = activeFilters.map((f, i) => `
+    <span class="filter-chip">
+      ${esc(f)}
+      <span class="filter-chip-x" data-idx="${i}">&times;</span>
+    </span>
+  `).join('');
+  if (activeJobFilter) {
+    const c = jobColor(activeJobFilter);
+    html += `<span class="filter-chip" style="background:${c.bg}22;border-color:${c.bg};color:${c.bg}">
+      job: ${esc(activeJobFilter)}
+      <span class="filter-chip-x" data-job-clear="1" style="color:${c.bg}">&times;</span>
+    </span>`;
+    html += `<button class="view-metrics-btn" id="view-metrics-btn">View metrics</button>`;
+  }
+  container.innerHTML = html;
+  container.querySelectorAll('.filter-chip-x[data-idx]').forEach(x => {
+    x.addEventListener('click', () => {
+      activeFilters.splice(parseInt(x.dataset.idx), 1);
+      renderFilterChips();
+      updateMatchCount();
+      render();
+    });
+  });
+  container.querySelectorAll('.filter-chip-x[data-job-clear]').forEach(x => {
+    x.addEventListener('click', () => {
+      activeJobFilter = null;
+      renderFilterChips();
+      updateMatchCount();
+      render();
+    });
+  });
+  const vmb = document.getElementById('view-metrics-btn');
+  if (vmb) vmb.addEventListener('click', () => openMetricsOverlay());
+}
+
+function addFilter(entry) {
+  if (!activeFilters.includes(entry)) {
+    activeFilters.push(entry);
+    renderFilterChips();
+    updateMatchCount();
+    render();
+  }
+  document.getElementById('label-search').value = '';
+  closeDropdown();
+}
+
+// Autocomplete
+const searchInput = document.getElementById('label-search');
+const dropdown = document.getElementById('ac-dropdown');
+let highlightIdx = -1;
+
+function openDropdown(items) {
+  if (items.length === 0) { closeDropdown(); return; }
+  highlightIdx = -1;
+  dropdown.innerHTML = items.map((item, i) => `
+    <div class="ac-item" data-entry="${esc(item.entry)}">
+      <span class="ac-key">${highlightMatch(item.entry, searchInput.value)}</span>
+      <span class="ac-count">${item.count}</span>
+    </div>
+  `).join('');
+  dropdown.classList.add('open');
+  dropdown.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('click', () => addFilter(el.dataset.entry));
+  });
+}
+
+function closeDropdown() {
+  dropdown.classList.remove('open');
+  highlightIdx = -1;
+}
+
+function highlightMatch(text, query) {
+  if (!query) return esc(text);
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return esc(text);
+  const before = text.slice(0, idx);
+  const match = text.slice(idx, idx + query.length);
+  const after = text.slice(idx + query.length);
+  return `${esc(before)}<b style="color:#1d4ed8">${esc(match)}</b>${esc(after)}`;
+}
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) { closeDropdown(); return; }
+  const allEntries = getAllLabelEntries();
+  const matches = [];
+  allEntries.forEach((count, entry) => {
+    if (entry.toLowerCase().includes(q) && !activeFilters.includes(entry)) {
+      matches.push({ entry, count });
+    }
+  });
+  // Also suggest key= completions
+  if (!q.includes('=')) {
+    getAllLabelKeys().forEach(k => {
+      if (k.toLowerCase().includes(q)) {
+        const vals = new Set();
+        DATA.nodes.forEach(n => { if (n.labels[k] !== undefined) vals.add(n.labels[k]); });
+        vals.forEach(v => {
+          const entry = `${k}=${v}`;
+          if (!matches.find(m => m.entry === entry) && !activeFilters.includes(entry)) {
+            matches.push({ entry, count: allEntries.get(entry) || 0 });
+          }
+        });
+      }
+    });
+  }
+  // Deduplicate and sort: exact key prefix first, then alphabetical
+  const unique = [...new Map(matches.map(m => [m.entry, m])).values()];
+  unique.sort((a, b) => {
+    const aStarts = a.entry.toLowerCase().startsWith(q) ? 0 : 1;
+    const bStarts = b.entry.toLowerCase().startsWith(q) ? 0 : 1;
+    if (aStarts !== bStarts) return aStarts - bStarts;
+    return a.entry.localeCompare(b.entry);
+  });
+  openDropdown(unique.slice(0, 12));
+});
+
+searchInput.addEventListener('keydown', e => {
+  const items = dropdown.querySelectorAll('.ac-item');
+  if (!dropdown.classList.contains('open') || items.length === 0) {
+    if (e.key === 'Enter') {
+      // Try exact match
+      const q = searchInput.value.trim();
+      const allEntries = getAllLabelEntries();
+      if (allEntries.has(q)) { addFilter(q); e.preventDefault(); }
+    }
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    highlightIdx = Math.min(highlightIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    highlightIdx = Math.max(highlightIdx - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('highlighted', i === highlightIdx));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (highlightIdx >= 0 && items[highlightIdx]) {
+      addFilter(items[highlightIdx].dataset.entry);
+    }
+  } else if (e.key === 'Escape') {
+    closeDropdown();
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) closeDropdown();
+});
+
+// ============================================================
+// METRICS OVERLAY (Grafana-style modal dashboard)
+// ============================================================
+
+function generateTimeSeries(currentValue, numPoints, min, max) {
+  const values = new Array(numPoints);
+  values[numPoints - 1] = currentValue;
+  const range = max - min;
+  const sigma = range * 0.03;
+  for (let i = numPoints - 2; i >= 0; i--) {
+    const noise = (Math.random() + Math.random() + Math.random() - 1.5) * 2 * sigma;
+    values[i] = Math.max(min, Math.min(max, values[i + 1] + noise));
+  }
+  return values;
+}
+
+// markers: [{ t: timestamp, label: string }]
+function drawChart(canvas, title, yLabel, yMin, yMax, seriesList, timestamps, markers) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = canvas.clientHeight;
+  if (W === 0 || H === 0) return; // not laid out yet
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, W, H);
+
+  const pad = { top: 28, right: 12, bottom: 32, left: 44 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  const tMin = timestamps[0], tMax = timestamps[timestamps.length - 1];
+
+  // Title
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 11px -apple-system, system-ui, sans-serif';
+  ctx.fillText(title, pad.left, 16);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9px -apple-system, system-ui, sans-serif';
+  ctx.fillText(yLabel, pad.left + ctx.measureText(title).width + 8, 16);
+
+  // Y grid lines
+  ctx.strokeStyle = '#2a2a40';
+  ctx.lineWidth = 0.5;
+  const ySteps = 5;
+  for (let i = 0; i <= ySteps; i++) {
+    const y = pad.top + (plotH / ySteps) * i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + plotW, y); ctx.stroke();
+    const val = yMax - (yMax - yMin) * (i / ySteps);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '9px -apple-system, system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(val), pad.left - 4, y + 3);
+  }
+
+  // X-axis time labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9px -apple-system, system-ui, sans-serif';
+  const xLabelCount = Math.min(6, timestamps.length);
+  for (let i = 0; i < xLabelCount; i++) {
+    const idx = Math.round(i * (timestamps.length - 1) / (xLabelCount - 1));
+    const x = pad.left + (idx / (timestamps.length - 1)) * plotW;
+    const d = new Date(timestamps[idx]);
+    ctx.fillText(d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }), x, pad.top + plotH + 16);
+  }
+
+  // Vertical marker lines (job start, current time)
+  if (markers) {
+    markers.forEach(m => {
+      if (m.t < tMin || m.t > tMax) return;
+      const x = pad.left + ((m.t - tMin) / (tMax - tMin)) * plotW;
+      ctx.save();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, pad.top + plotH); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = '8px -apple-system, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(m.label, x, pad.top - 3);
+      ctx.restore();
+    });
+  }
+
+  // Plot visible series
+  seriesList.forEach(s => {
+    if (!s.visible) return;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < s.values.length; i++) {
+      const x = pad.left + (i / (s.values.length - 1)) * plotW;
+      const y = pad.top + plotH - ((s.values[i] - yMin) / (yMax - yMin)) * plotH;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  });
+}
+
+const SERIES_COLORS = [
+  '#6366f1', '#06b6d4', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6',
+  '#ef4444', '#3b82f6', '#84cc16', '#a855f7', '#f59e0b', '#22c55e',
+  '#e11d48', '#0ea5e9', '#d946ef', '#64748b', '#facc15', '#fb923c',
+  '#38bdf8', '#a3e635', '#f472b6', '#2dd4bf', '#c084fc', '#fbbf24'
+];
+
+let metricsCharts = []; // { canvas, legendEl, title, yLabel, yMin, yMax, series, timestamps, markers }
+
+function redrawAllCharts() {
+  metricsCharts.forEach(cd => {
+    drawChart(cd.canvas, cd.title, cd.yLabel, cd.yMin, cd.yMax, cd.series, cd.timestamps, cd.markers);
+    // Update legend item classes
+    if (cd.legendEl) {
+      cd.legendEl.querySelectorAll('.mo-legend-item').forEach(el => {
+        const idx = parseInt(el.dataset.si);
+        el.classList.toggle('off', !cd.series[idx].visible);
+      });
+    }
+  });
+}
+
+function openMetricsOverlay() {
+  if (!activeJobFilter) return;
+  const jobName = activeJobFilter;
+
+  const jobNodes = DATA.nodes.filter(n =>
+    n.gpus.some(g => g.jobs && g.jobs.some(j => j.name === jobName))
+  );
+  if (jobNodes.length === 0) return;
+
+  // Find job start time (earliest)
+  let earliest = Date.now();
+  jobNodes.forEach(n => n.gpus.forEach(g => {
+    (g.jobs || []).forEach(j => {
+      if (j.name === jobName && j.startTime) {
+        const t = new Date(j.startTime).getTime();
+        if (t < earliest) earliest = t;
+      }
+    });
+  }));
+  const now = Date.now();
+  // Extend time range 5% beyond "now" so the current-time marker isn't at the very edge
+  const tEnd = now + (now - earliest) * 0.05;
+  const numPoints = 120;
+  const timestamps = [];
+  for (let i = 0; i < numPoints; i++) {
+    timestamps.push(earliest + (tEnd - earliest) * (i / (numPoints - 1)));
+  }
+
+  const markers = [
+    { t: earliest, label: 'Job start' },
+    { t: now,      label: 'Now' },
+  ];
+
+  // Find job priority
+  let jobPriority = '—';
+  outer: for (const n of jobNodes) {
+    for (const g of n.gpus) {
+      for (const j of (g.jobs || [])) {
+        if (j.name === jobName) { jobPriority = j.priority; break outer; }
+      }
+    }
+  }
+
+  // Header
+  document.getElementById('mo-title').innerHTML =
+    `${esc(jobName)}<span>Priority: ${jobPriority} &middot; Started: ${fmtTime(new Date(earliest).toISOString())} (local tz) &middot; ${jobNodes.length} node${jobNodes.length > 1 ? 's' : ''}</span>`;
+
+  // Group filter: use same groupBy as main view
+  const filtersEl = document.getElementById('mo-filters');
+  let fHtml = '';
+  // Build groups from jobNodes using current activeGroupBy
+  const moGroups = new Map(); // groupKey → [nodeId, ...]
+  if (activeGroupBy) {
+    jobNodes.forEach(n => {
+      const key = getGroupKey(n);
+      if (!moGroups.has(key)) moGroups.set(key, []);
+      moGroups.get(key).push(n.id);
+    });
+    const groupSel = document.getElementById('group-select');
+    const groupLabel = groupSel.options[groupSel.selectedIndex].textContent;
+    fHtml += `<span class="mo-filter-label">Group (${esc(groupLabel)}):</span>`;
+    for (const [gk, nodeIds] of moGroups) {
+      fHtml += `<label class="checked"><input type="checkbox" data-group-key="${esc(gk)}" checked>${esc(gk)} (${nodeIds.length})</label>`;
+    }
+  } else {
+    // No grouping active — show per-node toggles
+    fHtml += '<span class="mo-filter-label">Nodes:</span>';
+    jobNodes.forEach(n => {
+      moGroups.set(n.id, [n.id]);
+      fHtml += `<label class="checked"><input type="checkbox" data-group-key="${n.id}" checked>${n.id}</label>`;
+    });
+  }
+  filtersEl.innerHTML = fHtml;
+
+  // Series builders
+  function buildGpuSeries(prop, min, max) {
+    const series = []; let ci = 0;
+    jobNodes.forEach(n => {
+      n.gpus.forEach((g, gi) => {
+        if (!g.jobs || !g.jobs.some(j => j.name === jobName)) return;
+        series.push({ label: `${n.id} GPU ${gi}`, nodeId: n.id,
+          values: generateTimeSeries(g[prop], numPoints, min, max),
+          color: SERIES_COLORS[ci++ % SERIES_COLORS.length], visible: true });
+      });
+    });
+    return series;
+  }
+  function getMaxPwr() {
+    let m = 700;
+    jobNodes.forEach(n => n.gpus.forEach(g => { if (g.maxPwr > m) m = g.maxPwr; }));
+    return m;
+  }
+  function buildGpuSeriesPwr() {
+    const series = []; let ci = 0;
+    jobNodes.forEach(n => {
+      n.gpus.forEach((g, gi) => {
+        if (!g.jobs || !g.jobs.some(j => j.name === jobName)) return;
+        series.push({ label: `${n.id} GPU ${gi}`, nodeId: n.id,
+          values: generateTimeSeries(g.pwr, numPoints, 30, g.maxPwr),
+          color: SERIES_COLORS[ci++ % SERIES_COLORS.length], visible: true });
+      });
+    });
+    return series;
+  }
+  function buildArraySeries(arrayProp, valueFn, labelFn, min, max) {
+    const series = []; let ci = 0;
+    jobNodes.forEach(n => {
+      n[arrayProp].forEach(item => {
+        series.push({ label: `${n.id} ${labelFn(item)}`, nodeId: n.id,
+          values: generateTimeSeries(valueFn(item), numPoints, min, max),
+          color: SERIES_COLORS[ci++ % SERIES_COLORS.length], visible: true });
+      });
+    });
+    return series;
+  }
+  function buildScalarSeries(valueFn, min, max) {
+    const series = []; let ci = 0;
+    jobNodes.forEach(n => {
+      series.push({ label: n.id, nodeId: n.id,
+        values: generateTimeSeries(valueFn(n), numPoints, min, max),
+        color: SERIES_COLORS[ci++ % SERIES_COLORS.length], visible: true });
+    });
+    return series;
+  }
+
+  const maxPwr = getMaxPwr();
+  const chartDefs = [
+    { title: 'GPU Utilization',   yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildGpuSeries('util', 0, 100) },
+    { title: 'GPU VRAM',          yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildGpuSeries('mem', 0, 100) },
+    { title: 'GPU Temperature',   yLabel: '°C',     yMin: 0, yMax: 90,     build: buildGpuSeries('temp', 20, 90) },
+    { title: 'GPU Power',         yLabel: 'W',      yMin: 0, yMax: maxPwr, build: buildGpuSeriesPwr() },
+    { title: 'Disk Usage',        yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildArraySeries('disks', d => 100 - d.free, d => d.dev, 0, 100) },
+    { title: 'Network Bandwidth', yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildArraySeries('nics', n => n.bw, n => n.dev, 0, 100) },
+    { title: 'RDMA Bandwidth',    yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildArraySeries('rdma', r => r.bw, r => r.dev, 0, 100) },
+    { title: 'PCIe Throughput',   yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildScalarSeries(n => n.pcie.tput, 0, 100) },
+    { title: 'CPU Utilization',   yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildScalarSeries(n => n.cpu.util, 0, 100) },
+    { title: 'RAM Usage',         yLabel: '0-100%', yMin: 0, yMax: 100,    build: buildScalarSeries(n => n.ram.used, 0, 100) },
+  ];
+
+  // Build chart DOM + per-chart legends
+  const gridEl = document.getElementById('mo-grid');
+  gridEl.innerHTML = '';
+  metricsCharts = [];
+
+  chartDefs.forEach(cd => {
+    const wrap = document.createElement('div');
+    wrap.className = 'mo-chart-wrap';
+    const canvas = document.createElement('canvas');
+    canvas.style.width = '100%';
+    canvas.style.height = '220px';
+    canvas.style.display = 'block';
+    wrap.appendChild(canvas);
+
+    // Legend
+    const legendEl = document.createElement('div');
+    legendEl.className = 'mo-chart-legend';
+    cd.build.forEach((s, si) => {
+      legendEl.innerHTML += `<span class="mo-legend-item" data-si="${si}"><span class="mo-legend-swatch" style="background:${s.color}"></span>${esc(s.label)}</span>`;
+    });
+    wrap.appendChild(legendEl);
+    gridEl.appendChild(wrap);
+
+    const chartData = { canvas, legendEl, title: cd.title, yLabel: cd.yLabel, yMin: cd.yMin, yMax: cd.yMax, series: cd.build, timestamps, markers };
+    metricsCharts.push(chartData);
+
+    // Wire per-series legend clicks
+    legendEl.querySelectorAll('.mo-legend-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const si = parseInt(el.dataset.si);
+        chartData.series[si].visible = !chartData.series[si].visible;
+        el.classList.toggle('off', !chartData.series[si].visible);
+        drawChart(chartData.canvas, chartData.title, chartData.yLabel, chartData.yMin, chartData.yMax, chartData.series, chartData.timestamps, chartData.markers);
+      });
+    });
+  });
+
+  // Wire group filter checkboxes
+  filtersEl.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const groupKey = cb.dataset.groupKey;
+      const visible = cb.checked;
+      cb.parentElement.classList.toggle('checked', visible);
+      // Find nodeIds in this group
+      const nodeIds = moGroups.get(groupKey) || [];
+      metricsCharts.forEach(cd => {
+        cd.series.forEach(s => {
+          if (nodeIds.includes(s.nodeId)) s.visible = visible;
+        });
+        drawChart(cd.canvas, cd.title, cd.yLabel, cd.yMin, cd.yMax, cd.series, cd.timestamps, cd.markers);
+        // Sync legend
+        if (cd.legendEl) cd.legendEl.querySelectorAll('.mo-legend-item').forEach(el => {
+          el.classList.toggle('off', !cd.series[parseInt(el.dataset.si)].visible);
+        });
+      });
+    });
+  });
+
+  // Show modal FIRST, then draw in next frame so canvas has layout dimensions
+  document.getElementById('metrics-overlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(() => {
+    metricsCharts.forEach(cd => {
+      drawChart(cd.canvas, cd.title, cd.yLabel, cd.yMin, cd.yMax, cd.series, cd.timestamps, cd.markers);
+    });
+  });
+}
+
+function closeMetricsOverlay() {
+  document.getElementById('metrics-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+  metricsCharts = [];
+}
+
+document.getElementById('mo-close').addEventListener('click', closeMetricsOverlay);
+// Close on backdrop click (but not modal body click)
+document.getElementById('metrics-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeMetricsOverlay();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('metrics-overlay').style.display !== 'none') {
+    closeMetricsOverlay();
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+render();
+</script>
+</body>
+</html>

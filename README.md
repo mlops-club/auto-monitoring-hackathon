@@ -56,6 +56,10 @@ Have Claude Code
 2. Explore logs and metrics about every piece of hardware the job touches to determine what bottlenecks are preventing the GPU from being fully utilized, e.g. batches of training data are not loading fast enough due to (GPUs and VRAM, Local disk pressure, Network pressure, Infiniband/RDMA pressure, Network storage, CPUs and RAM)
 3. Identify blind spots in our data and recommend more telemetry to collect, e.g. if certain hardware such as network interface cards (NICs) or disk drives are not tracked.
 
+Here's a visualization I made to illustrate the type of data I'd like to collect for distributed training. Full vibe-coded HTML page with fake data in [`./docs/cluster-view.html`](./docs/cluster-view.html).
+
+![](./docs/gpu-monitoring-view.png)
+
 ## Meta goal: ***how*** we'll build it
 
 The hackathon goal is not to build this system.
