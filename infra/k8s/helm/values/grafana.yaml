@@ -1,0 +1,72 @@
+# Grafana - Visualization and dashboarding
+# Chart: grafana/grafana
+
+fullnameOverride: grafana
+
+adminPassword: changeme
+
+grafana.ini:
+  server:
+    root_url: "%(protocol)s://%(domain)s/"
+  auth.anonymous:
+    enabled: true
+    org_role: Viewer
+  log:
+    mode: console
+    level: info
+  log.console:
+    format: json
+
+# Four-pillar datasources with full cross-linking
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Mimir
+        type: prometheus
+        uid: mimir
+        url: http://mimir:8080/prometheus
+        isDefault: true
+        jsonData:
+          exemplarTraceIdDestinations:
+            - datasourceUid: tempo
+              name: trace_id
+      - name: Loki
+        type: loki
+        uid: loki
+        url: http://loki:3100
+        jsonData:
+          derivedFields:
+            - datasourceUid: tempo
+              matcherRegex: '"trace_id":"([a-f0-9]+)"'
+              name: trace_id
+              url: "$${__value.raw}"
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        url: http://tempo:3200
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+          tracesToMetrics:
+            datasourceUid: mimir
+          tracesToProfilesV2:
+            datasourceUid: pyroscope
+          nodeGraph:
+            enabled: true
+          serviceMap:
+            datasourceUid: mimir
+      - name: Pyroscope
+        type: grafana-pyroscope-datasource
+        uid: pyroscope
+        url: http://pyroscope:4040
+
+persistence:
+  enabled: true
+  size: 5Gi
+
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 384Mi

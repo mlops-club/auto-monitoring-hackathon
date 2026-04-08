@@ -1,0 +1,12 @@
+{
+  "availability-zones:account=292783887127:region=us-west-2": [
+    "us-west-2a",
+    "us-west-2b",
+    "us-west-2c",
+    "us-west-2d"
+  ],
+  "hosted-zone:account=292783887127:domainName=subq-sandbox.com:region=us-west-2": {
+    "Id": "/hostedzone/Z09554162IC6F7GCC8XO9",
+    "Name": "subq-sandbox.com."
+  }
+}

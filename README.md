@@ -10,6 +10,8 @@
   <a href="https://github.com/mlops-club/auto-monitoring-hackathon"><img src="https://img.shields.io/badge/View_on-GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
 </p>
 
+![](./architecture.excalidraw.svg)
+
 - [Details](#details)
   - [When](#when)
   - [Where](#where)

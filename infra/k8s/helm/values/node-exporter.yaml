@@ -1,0 +1,23 @@
+# Node Exporter - Host-level metrics
+# Chart: prometheus-community/prometheus-node-exporter
+
+fullnameOverride: node-exporter
+
+resources:
+  requests:
+    memory: 32Mi
+  limits:
+    memory: 64Mi
+
+tolerations:
+  - effect: NoSchedule
+    operator: Exists
+
+hostNetwork: true
+hostPID: true
+hostRootFsMount:
+  enabled: true
+
+service:
+  port: 9100
+  targetPort: 9100
