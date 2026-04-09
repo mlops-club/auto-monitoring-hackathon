@@ -1,0 +1,44 @@
+# Tempo - Distributed tracing backend
+# Chart: grafana/tempo (monolithic mode)
+# S3_BUCKET and AWS_REGION are substituted by deploy-monitoring.sh via envsubst
+
+fullnameOverride: tempo
+
+tempo:
+  multitenancyEnabled: false
+  reportingEnabled: false
+  storage:
+    trace:
+      backend: s3
+      s3:
+        bucket: ${S3_BUCKET}
+        region: ${AWS_REGION}
+        insecure: false
+      wal:
+        path: /var/tempo/wal
+  retention: 168h
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: "http://mimir:8080/api/v1/push"
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+# Use IRSA service account created by CDK
+serviceAccount:
+  create: false
+  name: tempo
+
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 384Mi

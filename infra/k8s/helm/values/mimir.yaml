@@ -1,0 +1,85 @@
+# Mimir - Metrics storage backend (Prometheus-compatible)
+# Chart: grafana/mimir-distributed in SingleBinary mode
+# S3_BUCKET and AWS_REGION are substituted by deploy-monitoring.sh via envsubst
+
+fullnameOverride: mimir
+
+deploymentMode: SingleBinary
+
+mimir:
+  structuredConfig:
+    multitenancy_enabled: false
+    common:
+      storage:
+        backend: s3
+        s3:
+          region: ${AWS_REGION}
+          bucket_name: ${S3_BUCKET}
+    blocks_storage:
+      storage_prefix: mimir
+      tsdb:
+        dir: /data/mimir/tsdb
+    compactor:
+      data_dir: /data/mimir/compactor
+    limits:
+      max_global_series_per_user: 0
+      max_global_exemplars_per_user: 100000
+      compactor_blocks_retention_period: 168h
+    ruler_storage:
+      storage_prefix: mimir-ruler
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+
+# Use IRSA service account created by CDK
+serviceAccount:
+  create: false
+  name: mimir
+
+# Disable all microservice components (SingleBinary mode)
+ingester:
+  replicas: 0
+distributor:
+  replicas: 0
+querier:
+  replicas: 0
+query_frontend:
+  replicas: 0
+query_scheduler:
+  replicas: 0
+ruler:
+  replicas: 0
+compactor:
+  replicas: 0
+store_gateway:
+  replicas: 0
+alertmanager:
+  replicas: 0
+overrides_exporter:
+  replicas: 0
+
+# Disable sub-charts
+minio:
+  enabled: false
+nginx:
+  enabled: false
+
+rollout_operator:
+  enabled: false
+
+# Disable built-in monitoring (we handle it via Alloy)
+metaMonitoring:
+  dashboards:
+    enabled: false
+  serviceMonitor:
+    enabled: false
+  prometheusRule:
+    enabled: false

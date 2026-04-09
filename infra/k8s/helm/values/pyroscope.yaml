@@ -1,0 +1,31 @@
+# Pyroscope - Continuous profiling backend
+# Chart: grafana/pyroscope
+# S3_BUCKET and AWS_REGION are substituted by deploy-monitoring.sh via envsubst
+
+fullnameOverride: pyroscope
+
+pyroscope:
+  config: |
+    target: all
+    storage:
+      backend: s3
+      s3:
+        region: ${AWS_REGION}
+        bucket_name: ${S3_BUCKET}
+    self_profiling:
+      disable_push: true
+
+persistence:
+  enabled: true
+  size: 10Gi
+
+# Use IRSA service account created by CDK
+serviceAccount:
+  create: false
+  name: pyroscope
+
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 384Mi

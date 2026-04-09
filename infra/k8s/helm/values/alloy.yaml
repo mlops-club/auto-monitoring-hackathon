@@ -1,0 +1,181 @@
+# Alloy - Telemetry collector (OTLP, Faro, infrastructure scraping)
+# Chart: grafana/alloy
+
+fullnameOverride: alloy
+
+alloy:
+  configMap:
+    content: |
+      // ============================================================
+      // OTLP Receiver — backend application telemetry
+      // ============================================================
+      otelcol.receiver.otlp "default" {
+        grpc { endpoint = "0.0.0.0:4317" }
+        http { endpoint = "0.0.0.0:4318" }
+        output {
+          metrics = [otelcol.processor.batch.default.input]
+          logs    = [otelcol.processor.batch.default.input]
+          traces  = [otelcol.processor.batch.default.input]
+        }
+      }
+
+      // ============================================================
+      // Faro Receiver — frontend browser telemetry
+      // ============================================================
+      faro.receiver "default" {
+        server {
+          listen_address       = "0.0.0.0"
+          listen_port          = 12347
+          cors_allowed_origins = ["*"]
+        }
+        output {
+          logs   = [otelcol.processor.batch.faro.input]
+          traces = [otelcol.processor.batch.faro.input]
+        }
+      }
+
+      // ============================================================
+      // Batch Processors
+      // ============================================================
+      otelcol.processor.batch "default" {
+        timeout         = "5s"
+        send_batch_size = 1000
+        output {
+          metrics = [otelcol.exporter.otlphttp.mimir.input]
+          logs    = [otelcol.exporter.loki.default.input]
+          traces  = [otelcol.exporter.otlp.tempo.input]
+        }
+      }
+
+      otelcol.processor.batch "faro" {
+        timeout         = "5s"
+        send_batch_size = 500
+        output {
+          logs   = [otelcol.exporter.loki.default.input]
+          traces = [otelcol.exporter.otlp.tempo.input]
+        }
+      }
+
+      // ============================================================
+      // Exporters — route signals to storage backends
+      // ============================================================
+      otelcol.exporter.otlphttp "mimir" {
+        client {
+          endpoint = "http://mimir:8080/otlp"
+          tls { insecure = true }
+        }
+      }
+
+      otelcol.exporter.loki "default" {
+        forward_to = [loki.write.default.receiver]
+      }
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki:3100/loki/api/v1/push"
+        }
+      }
+
+      otelcol.exporter.otlp "tempo" {
+        client {
+          endpoint = "tempo:4317"
+          tls { insecure = true }
+        }
+      }
+
+      // ============================================================
+      // Infrastructure Scraping — Node Exporter
+      // ============================================================
+      discovery.kubernetes "endpoints" {
+        role = "endpoints"
+        namespaces {
+          names = ["monitoring"]
+        }
+      }
+
+      discovery.relabel "node_exporter" {
+        targets = discovery.kubernetes.endpoints.targets
+        rule {
+          source_labels = ["__meta_kubernetes_service_name"]
+          regex         = "node-exporter"
+          action        = "keep"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_endpoint_port_name"]
+          regex         = "metrics"
+          action        = "keep"
+        }
+      }
+
+      prometheus.scrape "node_exporter" {
+        targets         = discovery.relabel.node_exporter.output
+        job_name        = "node-exporter"
+        scrape_interval = "30s"
+        forward_to      = [prometheus.remote_write.mimir.receiver]
+      }
+
+      // ============================================================
+      // Infrastructure Scraping — Kubelet cAdvisor
+      // ============================================================
+      discovery.kubernetes "nodes" {
+        role = "node"
+      }
+
+      discovery.relabel "cadvisor" {
+        targets = discovery.kubernetes.nodes.targets
+        rule {
+          replacement  = "/metrics/cadvisor"
+          target_label = "__metrics_path__"
+        }
+      }
+
+      prometheus.scrape "cadvisor" {
+        targets           = discovery.relabel.cadvisor.output
+        job_name          = "cadvisor"
+        scrape_interval   = "30s"
+        scheme            = "https"
+        bearer_token_file = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        tls_config {
+          insecure_skip_verify = true
+        }
+        forward_to = [prometheus.remote_write.mimir.receiver]
+      }
+
+      // ============================================================
+      // Prometheus Remote Write — infrastructure metrics to Mimir
+      // ============================================================
+      prometheus.remote_write "mimir" {
+        endpoint {
+          url = "http://mimir:8080/api/v1/push"
+        }
+      }
+
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
+    - name: faro
+      port: 12347
+      targetPort: 12347
+      protocol: TCP
+
+controller:
+  type: deployment
+  replicas: 1
+
+resources:
+  requests:
+    memory: 128Mi
+  limits:
+    memory: 384Mi
+
+serviceAccount:
+  create: true
+
+rbac:
+  create: true
