@@ -136,3 +136,30 @@ spec:
                 name: pyroscope
                 port:
                   number: 4040
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alloy-otlp
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/group.name: monitoring
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}
+    alb.ingress.kubernetes.io/healthcheck-path: /ready
+    external-dns.alpha.kubernetes.io/hostname: otlp.hack.subq-sandbox.com
+spec:
+  ingressClassName: alb
+  rules:
+    - host: otlp.hack.subq-sandbox.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: alloy
+                port:
+                  number: 4318

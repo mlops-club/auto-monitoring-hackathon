@@ -231,6 +231,39 @@ class EksStack(Stack):
             sa.node.add_dependency(monitoring_ns)
             obs_bucket.grant_read_write(sa)
 
+        # --- IRSA: Alloy (CloudWatch scraping) ---
+        alloy_sa = cluster.add_service_account(
+            "AlloySA",
+            name="alloy",
+            namespace="monitoring",
+        )
+        alloy_sa.node.add_dependency(monitoring_ns)
+        alloy_sa.add_to_principal_policy(
+            iam.PolicyStatement(
+                actions=[
+                    # CloudWatch metrics
+                    "cloudwatch:GetMetricData",
+                    "cloudwatch:GetMetricStatistics",
+                    "cloudwatch:ListMetrics",
+                    # Resource discovery (YACE)
+                    "tag:GetResources",
+                    "iam:ListAccountAliases",
+                    # Service-specific describe for YACE auto-discovery
+                    "rds:DescribeDBInstances",
+                    "rds:DescribeDBClusters",
+                    "rds:ListTagsForResource",
+                    "apigateway:GET",
+                    "lambda:ListFunctions",
+                    "lambda:ListTags",
+                    # CloudWatch Logs
+                    "logs:DescribeLogGroups",
+                    "logs:FilterLogEvents",
+                    "logs:GetLogEvents",
+                ],
+                resources=["*"],
+            )
+        )
+
         # --- ACM Wildcard Certificate for *.hack.subq-sandbox.com ---
         hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
             self,
@@ -345,6 +378,7 @@ class EksStack(Stack):
         CfnOutput(self, "WildcardCertArn", value=wildcard_cert.certificate_arn)
         CfnOutput(self, "LbControllerRoleArn", value=lb_controller_sa.role.role_arn)
         CfnOutput(self, "ExternalDnsRoleArn", value=external_dns_sa.role.role_arn)
+        CfnOutput(self, "AlloyRoleArn", value=alloy_sa.role.role_arn)
 
         Tags.of(self).add("project", "auto-monitoring-hackathon")
 
