@@ -16,41 +16,55 @@ NAMESPACE="monitoring"
 AWS_PROFILE="${AWS_PROFILE:-subq-sandbox}"
 AWS_REGION="${AWS_REGION:-us-west-2}"
 STACK_NAME="AutoMonitoringEks"
+CLUSTER_NAME="auto-monitoring"
 
 # ─── Pre-flight checks ───────────────────────────────────────────────
 for cmd in helm kubectl envsubst aws; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "ERROR: $cmd not found."; exit 1; }
 done
 
-# ─── Fetch S3 bucket name from CloudFormation stack outputs ──────────
-echo "Fetching S3 bucket name from CloudFormation stack '$STACK_NAME'..."
-S3_BUCKET=$(aws cloudformation describe-stacks \
-  --stack-name "$STACK_NAME" \
-  --query "Stacks[0].Outputs[?OutputKey=='ObsBucketName'].OutputValue" \
-  --output text \
-  --region "$AWS_REGION" \
-  --profile "$AWS_PROFILE" 2>/dev/null || echo "")
+# ─── Fetch CloudFormation stack outputs ───────────────────────────────
+echo "Fetching outputs from CloudFormation stack '$STACK_NAME'..."
 
-if [[ -z "$S3_BUCKET" || "$S3_BUCKET" == "None" ]]; then
-  echo "ERROR: Could not retrieve ObsBucketName from stack '$STACK_NAME'."
-  echo ""
-  echo "Deploy the CDK stack first:"
-  echo "  npx cdk deploy --app 'uv run infra/infra.py' --profile $AWS_PROFILE"
-  exit 1
-fi
+cfn_output() {
+  aws cloudformation describe-stacks \
+    --stack-name "$STACK_NAME" \
+    --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
+    --output text \
+    --region "$AWS_REGION" \
+    --profile "$AWS_PROFILE" 2>/dev/null || echo ""
+}
 
-export S3_BUCKET AWS_REGION
+S3_BUCKET=$(cfn_output ObsBucketName)
+CERT_ARN=$(cfn_output WildcardCertArn)
+LB_CONTROLLER_ROLE_ARN=$(cfn_output LbControllerRoleArn)
+EXTERNAL_DNS_ROLE_ARN=$(cfn_output ExternalDnsRoleArn)
 
-echo ""
-echo "  S3 Bucket : $S3_BUCKET"
-echo "  Region    : $AWS_REGION"
-echo "  Namespace : $NAMESPACE"
+for var in S3_BUCKET CERT_ARN LB_CONTROLLER_ROLE_ARN EXTERNAL_DNS_ROLE_ARN; do
+  val="${!var}"
+  if [[ -z "$val" || "$val" == "None" ]]; then
+    echo "ERROR: Could not retrieve $var from stack '$STACK_NAME'."
+    echo ""
+    echo "Deploy the CDK stack first:"
+    echo "  npx cdk deploy --app 'uv run infra/infra.py' --profile $AWS_PROFILE"
+    exit 1
+  fi
+done
+
+export S3_BUCKET AWS_REGION CERT_ARN
+
+echo "  S3 Bucket  : $S3_BUCKET"
+echo "  Cert ARN   : $CERT_ARN"
+echo "  Region     : $AWS_REGION"
+echo "  Namespace  : $NAMESPACE"
 echo ""
 
 # ─── Add Helm repositories ──────────────────────────────────────────
 echo "Adding Helm repositories..."
 helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+helm repo add eks https://aws.github.io/eks-charts 2>/dev/null || true
+helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/ 2>/dev/null || true
 helm repo update
 
 # ─── Helper: deploy a Helm chart with envsubst-templated values ──────
@@ -58,21 +72,51 @@ deploy() {
   local name="$1" chart="$2" values_file="$3"
   shift 3
 
-  echo ""
-  echo "══════════════════════════════════════════════════════════════"
-  echo "  Deploying: $name  ($chart)"
-  echo "══════════════════════════════════════════════════════════════"
-
-  envsubst '$S3_BUCKET $AWS_REGION' < "$SCRIPT_DIR/values/$values_file" | \
+  echo "Deploying $name..."
+  envsubst '$S3_BUCKET $AWS_REGION $CERT_ARN' < "$SCRIPT_DIR/values/$values_file" | \
     helm upgrade --install "$name" "$chart" \
       --namespace "$NAMESPACE" \
       --create-namespace \
       -f - \
       "$@" \
       --wait --timeout 5m
-
-  echo "  ✓ $name deployed"
+  echo "  Done."
 }
+
+# ─── 0. Ingress infrastructure ────────────────────────────────────────
+
+# AWS Load Balancer Controller
+echo "Deploying aws-load-balancer-controller..."
+helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  --namespace kube-system \
+  --set clusterName="$CLUSTER_NAME" \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller \
+  --set region="$AWS_REGION" \
+  --set vpcId="$(aws ec2 describe-vpcs \
+    --filters "Name=tag:project,Values=auto-monitoring-hackathon" \
+    --query "Vpcs[0].VpcId" --output text \
+    --region "$AWS_REGION" --profile "$AWS_PROFILE")" \
+  --wait --timeout 5m
+echo "  Done."
+
+# external-dns
+echo "Deploying external-dns..."
+helm upgrade --install external-dns external-dns/external-dns \
+  --namespace kube-system \
+  --set provider.name=aws \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=external-dns \
+  --set "domainFilters[0]=subq-sandbox.com" \
+  --set policy=sync \
+  --set registry=txt \
+  --set txtOwnerId=auto-monitoring \
+  --set "env[0].name=AWS_DEFAULT_REGION" \
+  --set "env[0].value=$AWS_REGION" \
+  --set "managedRecordTypes[0]=A" \
+  --set "managedRecordTypes[1]=CNAME" \
+  --wait --timeout 5m
+echo "  Done."
 
 # ─── 1. Storage backends (deploy Mimir first — Tempo pushes metrics to it) ───
 deploy mimir          grafana/mimir-distributed                       mimir.yaml
@@ -89,20 +133,28 @@ deploy alloy          grafana/alloy                                   alloy.yaml
 # ─── 4. Visualization ───────────────────────────────────────────────
 deploy grafana        grafana/grafana                                 grafana.yaml
 
+# ─── 5. Ingress resources ────────────────────────────────────────────
+echo "Applying ingress resources..."
+envsubst '$CERT_ARN' < "$SCRIPT_DIR/ingress.yaml" | kubectl apply -f -
+echo "  Done."
+
 # ─── Done ────────────────────────────────────────────────────────────
 echo ""
-echo "══════════════════════════════════════════════════════════════"
-echo "  All charts deployed successfully!"
-echo "══════════════════════════════════════════════════════════════"
+echo "All charts deployed successfully!"
 echo ""
-echo "Access Grafana:"
-echo "  kubectl port-forward svc/grafana 3000:80 -n $NAMESPACE"
-echo "  Open http://localhost:3000  (admin / changeme)"
+echo "Public URLs (may take 2-3 min for ALB + DNS):"
+echo "  https://grafana.hack.subq-sandbox.com   (admin / changeme)"
+echo "  https://mimir.hack.subq-sandbox.com"
+echo "  https://loki.hack.subq-sandbox.com"
+echo "  https://tempo.hack.subq-sandbox.com"
+echo "  https://pyroscope.hack.subq-sandbox.com"
 echo ""
 echo "Send OTLP telemetry to Alloy:"
 echo "  gRPC: alloy.$NAMESPACE.svc.cluster.local:4317"
 echo "  HTTP: alloy.$NAMESPACE.svc.cluster.local:4318"
 echo "  Faro: alloy.$NAMESPACE.svc.cluster.local:12347"
 echo ""
-echo "Verify pods:"
-echo "  kubectl get pods -n $NAMESPACE"
+echo "Verify:"
+echo "  kubectl get ingress -n $NAMESPACE"
+echo "  kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller"
+echo "  kubectl get pods -n kube-system -l app.kubernetes.io/name=external-dns"

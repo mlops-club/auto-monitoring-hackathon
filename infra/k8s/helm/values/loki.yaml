@@ -32,6 +32,7 @@ loki:
     max_query_parallelism: 2
   compactor:
     retention_enabled: true
+    delete_request_store: s3
 
 singleBinary:
   replicas: 1

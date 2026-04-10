@@ -29,7 +29,7 @@ alloy:
           cors_allowed_origins = ["*"]
         }
         output {
-          logs   = [otelcol.processor.batch.faro.input]
+          logs   = [loki.write.default.receiver]
           traces = [otelcol.processor.batch.faro.input]
         }
       }

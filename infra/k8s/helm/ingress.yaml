@@ -1,0 +1,138 @@
+# Ingress resources for the monitoring stack.
+# All share group.name=monitoring so they merge into a single ALB.
+# ${CERT_ARN} is substituted by envsubst at deploy time.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/group.name: monitoring
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    external-dns.alpha.kubernetes.io/hostname: grafana.hack.subq-sandbox.com
+spec:
+  ingressClassName: alb
+  rules:
+    - host: grafana.hack.subq-sandbox.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mimir
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/group.name: monitoring
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}
+    alb.ingress.kubernetes.io/healthcheck-path: /ready
+    external-dns.alpha.kubernetes.io/hostname: mimir.hack.subq-sandbox.com
+spec:
+  ingressClassName: alb
+  rules:
+    - host: mimir.hack.subq-sandbox.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mimir-gateway
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: loki
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/group.name: monitoring
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}
+    alb.ingress.kubernetes.io/healthcheck-path: /ready
+    external-dns.alpha.kubernetes.io/hostname: loki.hack.subq-sandbox.com
+spec:
+  ingressClassName: alb
+  rules:
+    - host: loki.hack.subq-sandbox.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: loki
+                port:
+                  number: 3100
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tempo
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/group.name: monitoring
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}
+    alb.ingress.kubernetes.io/healthcheck-path: /ready
+    external-dns.alpha.kubernetes.io/hostname: tempo.hack.subq-sandbox.com
+spec:
+  ingressClassName: alb
+  rules:
+    - host: tempo.hack.subq-sandbox.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tempo
+                port:
+                  number: 3200
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pyroscope
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/group.name: monitoring
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: ${CERT_ARN}
+    alb.ingress.kubernetes.io/healthcheck-path: /ready
+    external-dns.alpha.kubernetes.io/hostname: pyroscope.hack.subq-sandbox.com
+spec:
+  ingressClassName: alb
+  rules:
+    - host: pyroscope.hack.subq-sandbox.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pyroscope
+                port:
+                  number: 4040

@@ -12,6 +12,7 @@ pyroscope:
       s3:
         region: ${AWS_REGION}
         bucket_name: ${S3_BUCKET}
+        endpoint: s3.${AWS_REGION}.amazonaws.com
     self_profiling:
       disable_push: true
 

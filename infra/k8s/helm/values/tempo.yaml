@@ -13,6 +13,7 @@ tempo:
       s3:
         bucket: ${S3_BUCKET}
         region: ${AWS_REGION}
+        endpoint: s3.${AWS_REGION}.amazonaws.com
         insecure: false
       wal:
         path: /var/tempo/wal
