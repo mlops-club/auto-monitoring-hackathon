@@ -150,6 +150,7 @@ alloy:
         }
       }
 
+
   extraPorts:
     - name: otlp-grpc
       port: 4317
@@ -174,8 +175,10 @@ resources:
   limits:
     memory: 384Mi
 
+# Use IRSA service account created by CDK (CloudWatch permissions)
 serviceAccount:
-  create: true
+  create: false
+  name: alloy
 
 rbac:
   create: true

@@ -39,8 +39,9 @@ S3_BUCKET=$(cfn_output ObsBucketName)
 CERT_ARN=$(cfn_output WildcardCertArn)
 LB_CONTROLLER_ROLE_ARN=$(cfn_output LbControllerRoleArn)
 EXTERNAL_DNS_ROLE_ARN=$(cfn_output ExternalDnsRoleArn)
+ALLOY_ROLE_ARN=$(cfn_output AlloyRoleArn)
 
-for var in S3_BUCKET CERT_ARN LB_CONTROLLER_ROLE_ARN EXTERNAL_DNS_ROLE_ARN; do
+for var in S3_BUCKET CERT_ARN LB_CONTROLLER_ROLE_ARN EXTERNAL_DNS_ROLE_ARN ALLOY_ROLE_ARN; do
   val="${!var}"
   if [[ -z "$val" || "$val" == "None" ]]; then
     echo "ERROR: Could not retrieve $var from stack '$STACK_NAME'."
@@ -149,7 +150,12 @@ echo "  https://loki.hack.subq-sandbox.com"
 echo "  https://tempo.hack.subq-sandbox.com"
 echo "  https://pyroscope.hack.subq-sandbox.com"
 echo ""
-echo "Send OTLP telemetry to Alloy:"
+echo "Send OTLP telemetry to Alloy (external):"
+echo "  https://otlp.hack.subq-sandbox.com/v1/metrics"
+echo "  https://otlp.hack.subq-sandbox.com/v1/traces"
+echo "  https://otlp.hack.subq-sandbox.com/v1/logs"
+echo ""
+echo "Send OTLP telemetry to Alloy (cluster-internal):"
 echo "  gRPC: alloy.$NAMESPACE.svc.cluster.local:4317"
 echo "  HTTP: alloy.$NAMESPACE.svc.cluster.local:4318"
 echo "  Faro: alloy.$NAMESPACE.svc.cluster.local:12347"
