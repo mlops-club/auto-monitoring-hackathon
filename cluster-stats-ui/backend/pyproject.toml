@@ -1,0 +1,28 @@
+[project]
+name = "cs-backend"
+version = "0.1.0"
+description = "Cluster Stats UI backend — FastAPI app for querying and serving cluster metrics"
+readme = "README.md"
+authors = [
+    { name = "phitoduck", email = "eric.riddoch@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi-slim",
+    "pydantic>=2",
+    "pydantic-settings",
+    "structlog",
+    "httpx",
+]
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
+asgi = ["uvicorn"]
+dev = ["cs-backend[test,asgi]"]
+
+[build-system]
+requires = ["uv_build>=0.10.7,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]

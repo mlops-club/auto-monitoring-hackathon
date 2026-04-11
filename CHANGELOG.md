@@ -1,5 +1,53 @@
 # Changelog
 
+## 2026-04-11 — Cluster Stats UI backend and CI workflow
+
+### Why
+
+The monitoring UI needs a FastAPI backend to serve cluster metrics. This sets up
+the backend application scaffolding with a proper test framework and a GitHub
+Actions workflow so tests run automatically on every PR.
+
+### What changed
+
+#### 1. FastAPI backend (`cluster-stats-ui/backend/`)
+
+New `uv`-managed Python package at `cluster-stats-ui/backend/src/cs_backend/`
+following the same patterns as `apigw-rest-api/`:
+
+- **`create_app()` factory** — settings-injectable, no globals. Settings stored
+  on `app.state` and accessed via `Depends(get_settings)`.
+- **`pydantic-settings`** — `Settings` class with env-driven config
+  (`APP_NAME`, `DEBUG`, `MIMIR_BASE_URL`).
+- **Pydantic response models** — `HealthResponse` and `ErrorResponse` with
+  `Field(...)` descriptions and `json_schema_extra` examples for OpenAPI docs.
+- **Global error handler** — catches unhandled exceptions, returns structured JSON.
+- **Proper HTTP verbs/nouns** — `GET /health` endpoint to start.
+
+#### 2. Test framework (`cluster-stats-ui/backend/tests/`)
+
+- **Fixtures as plugins** — `tests/fixtures/` modules registered via
+  `pytest_plugins` in `conftest.py` (same pattern as cloud-course-project).
+- **Unit tests** (`tests/unit_tests/`) — 5 tests using `FastAPI.TestClient`,
+  fully in-process, no external dependencies.
+- **Functional tests** (`tests/functional_tests/`) — uses `httpx.Client` against
+  a live server via `CS_BACKEND_BASE_URL` env var, marked `@slow`.
+
+#### 3. GitHub Actions workflow (`.github/workflows/cluster-stats-ui.yml`)
+
+Triggers on PRs and pushes to main when `cluster-stats-ui/**` files change.
+Two jobs run **in parallel**:
+
+- **`backend-unit-tests`** — installs deps, runs unit tests with coverage.
+- **`backend-functional-tests`** — starts the server in background, waits for
+  health, runs functional tests against it.
+
+### How it was verified
+
+- All 5 unit tests pass locally (`uv run pytest tests/unit_tests/ -v`).
+- Functional test properly deselected with `-m "not slow"`.
+- CI workflow validated by pushing to PR branch.
+
 ## 2026-04-11 — Make monitoring backends cluster-internal only
 
 ### Why

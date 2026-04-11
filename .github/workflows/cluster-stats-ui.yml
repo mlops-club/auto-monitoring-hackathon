@@ -1,0 +1,67 @@
+name: Cluster Stats UI
+
+on:
+  pull_request:
+    paths:
+      - "cluster-stats-ui/**"
+  push:
+    branches: [main]
+    paths:
+      - "cluster-stats-ui/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cluster-stats-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Backend unit tests (in-process, no external deps) ─────────────
+  backend-unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cluster-stats-ui/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run unit tests
+        run: uv run pytest tests/unit_tests/ -v --cov=cs_backend --cov-report=term-missing
+
+  # ── Backend functional tests (against a live server) ──────────────
+  backend-functional-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cluster-stats-ui/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Start server
+        run: |
+          uv run uvicorn cs_backend.main:create_app --factory --host 0.0.0.0 --port 3000 &
+          echo "Waiting for server to be ready..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+              echo "Server is ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run functional tests
+        env:
+          CS_BACKEND_BASE_URL: http://localhost:3000
+        run: uv run pytest tests/functional_tests/ -v
