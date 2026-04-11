@@ -102,6 +102,15 @@ class EksStack(Stack):
                 principals=[iam.AccountRootPrincipal()],
             )
         )
+        # MastersRole needs eks:DescribeCluster for `aws eks update-kubeconfig`
+        masters_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["eks:DescribeCluster"],
+                resources=[
+                    f"arn:aws:eks:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}:cluster/{CLUSTER_NAME}"
+                ],
+            )
+        )
 
         # --- EKS Cluster ---
         cluster = eks.Cluster(
