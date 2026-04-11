@@ -40,3 +40,16 @@ def get_node_labels() -> dict[str, dict[str, str]]:
     _cache_ts = now
     LOGGER.info("k8s_node_labels_refreshed", node_count=len(result))
     return result
+
+
+def get_node_ip_map() -> dict[str, str]:
+    """Return ``{internal_ip: node_name}`` from K8s node status addresses."""
+    _load_k8s_config()
+    v1 = client.CoreV1Api()
+    nodes = v1.list_node()
+    ip_map: dict[str, str] = {}
+    for node in nodes.items:
+        for addr in node.status.addresses or []:
+            if addr.type == "InternalIP":
+                ip_map[addr.address] = node.metadata.name
+    return ip_map

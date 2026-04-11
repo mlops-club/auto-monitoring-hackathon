@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
+test = ["pytest", "pytest-cov", "respx>=0.21"]
 asgi = ["uvicorn"]
 dev = ["cs-backend[test,asgi]"]
 
