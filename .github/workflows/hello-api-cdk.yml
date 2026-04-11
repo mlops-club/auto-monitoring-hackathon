@@ -38,6 +38,10 @@ jobs:
 
       - uses: astral-sh/setup-uv@v4
 
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Assume OIDC role
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -115,6 +119,10 @@ jobs:
           node-version: "20"
 
       - uses: astral-sh/setup-uv@v4
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - name: Assume OIDC role
         uses: aws-actions/configure-aws-credentials@v4

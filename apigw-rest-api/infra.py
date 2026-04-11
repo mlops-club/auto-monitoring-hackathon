@@ -81,9 +81,11 @@ class HelloApiStack(Stack):
                 asset_hash=hashlib.sha256(
                     (THIS_DIR / "pyproject.toml").read_bytes()
                     + (THIS_DIR / "uv.lock").read_bytes()
+                    + b"arm64"
                 ).hexdigest(),
                 bundling=cdk.BundlingOptions(
                     image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    platform="linux/arm64",
                     command=[
                         "bash",
                         "-c",
