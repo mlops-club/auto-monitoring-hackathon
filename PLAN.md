@@ -112,3 +112,19 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
             1. [ ] Run FastAPI and the grafana stack in docker-compose so we can see the metrics locally
             2. [ ] Use `kubectl` to portforward alloy and point a local fastapi instance at that
       2. [ ] TBD: plan a way to verify that metrics are showing up properly as well
+
+## Deploy an APIGW + Lambda REST API and validate that these external Otel telemetry data make it to our backend
+
+1. Create a trivial HelloWorld FastAPI app exactly as shown in this repo in a folder called `aws-metrics
+2. Instrument the app with OpenTelemetry following the patterns [here](https://github.com/mlops-club/cloud-course-project/tree/main/src/files_api/monitoring), but use the OTel SDKs and autoinstrumentation for any relevant OSS python libs used.
+3. Use the ADOT lambda layer, but configure it to point at `otlp.hack.subq-sandbox.com`
+4. Create a self-contained cdk script to deploy this API as an APIGW + Lambda Fn following the pattern demonstrated [here](https://github.com/amitvikramraj/files-api/blob/main/infra.py)
+   1. Verify this by: deploying the endpoint and hitting it
+5. Set up monitoring instrumentation
+   1. Enable detailed monitoring on the lambda function and api gateway
+   2. Collect the custom metrics logged by the FastAPI app
+   3. Collect the traces
+   4. If the ADOT collector layer is capable of capturing the lambda stdout logs and send them to alloy as well, do so
+   5. Verify all each step by sending requests to the API and querying the loki, mimir, and tempo backends using `kubectl` to portforward
+      1. Ensure that the data you find in this process is created from YOUR SPECIFIC REQUEST and is not some old data from a previous API
+6. If not already present, create a MetricStream in the account using the CDK script in this repo, use it to send the detailed monitoring CloudWatch metrics to the otlp endpoint in our stack
