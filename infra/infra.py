@@ -95,6 +95,13 @@ class EksStack(Stack):
             "MastersRole",
             assumed_by=iam.AccountRootPrincipal(),
         )
+        # Allow sts:TagSession so GitHub Actions can chain into this role
+        masters_role.assume_role_policy.add_statements(
+            iam.PolicyStatement(
+                actions=["sts:TagSession"],
+                principals=[iam.AccountRootPrincipal()],
+            )
+        )
 
         # --- EKS Cluster ---
         cluster = eks.Cluster(
