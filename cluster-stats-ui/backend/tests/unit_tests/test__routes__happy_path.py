@@ -19,6 +19,12 @@ def test__get_health__response_schema(client: TestClient):
 
 
 def test__get_openapi_docs(client: TestClient):
-    """Verify that the OpenAPI docs page (mounted at /) is reachable."""
-    response = client.get("/")
+    """Verify that the OpenAPI docs page is reachable."""
+    response = client.get("/docs")
     assert response.status_code == status.HTTP_200_OK
+
+
+def test__get_ui_probe(client: TestClient):
+    response = client.get("/api/ui-probe")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["message"] == "Backend probe reached successfully."
