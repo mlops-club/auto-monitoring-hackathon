@@ -5,13 +5,13 @@
 
 ## Epic - Continuous Delivery
 
-1. [ ] Create a GitHub actions workflow that
-   1. [ ] Deploys the AWS CDK infra to the appropriate account
-   2. [ ] Deploys the helm charts to the cluster in the account
-   3. [ ] Only runs [1] if cdk-related code changed
-   4. [ ] Only runs [2] if helm/k8s-related code changed
-2. [ ] Set up the AWS OIDC connection with GitHub via IaC
-   1. [ ] Delegate access to the repo to deploy to the region
+1. [x] Create a GitHub actions workflow that
+   1. [x] Deploys the AWS CDK infra to the appropriate account
+   2. [x] Deploys the helm charts to the cluster in the account
+   3. [x] Only runs [1] if cdk-related code changed
+   4. [x] Only runs [2] if helm/k8s-related code changed
+2. [x] Set up the AWS OIDC connection with GitHub via IaC
+   1. [x] Delegate access to the repo to deploy to the region
 
 Use the `gh` CLI for operations against the repo to configure it.
 
