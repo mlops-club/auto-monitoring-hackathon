@@ -122,3 +122,23 @@ jobs:
 
       - name: CDK deploy
         run: npx cdk deploy --all --app "uv run apigw-rest-api/infra.py" --require-approval never
+
+      - name: Smoke-test Lambda
+        if: always()
+        run: |
+          sleep 5
+          echo "--- Invoking Lambda directly ---"
+          aws lambda invoke \
+            --function-name hello-api \
+            --payload '{"httpMethod":"GET","path":"/health","headers":{},"queryStringParameters":null,"body":null,"requestContext":{"stage":"prod"},"resource":"/{proxy+}","pathParameters":{"proxy":"health"}}' \
+            --cli-binary-format raw-in-base64-out \
+            /tmp/lambda-response.json 2>&1 || true
+          echo "--- Lambda response ---"
+          cat /tmp/lambda-response.json || true
+          echo ""
+          echo "--- Recent CloudWatch logs ---"
+          aws logs filter-log-events \
+            --log-group-name /aws/lambda/hello-api \
+            --limit 30 \
+            --query 'events[*].message' \
+            --output text 2>&1 | tail -60 || true
