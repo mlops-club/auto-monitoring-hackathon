@@ -2,19 +2,14 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { CpuRamColumn } from "../components/columns/CpuRamColumn";
 
-const cpu = { util: 35, cores: 128, model: "AMD EPYC 9654" };
-const ram = { used: 42, total: "2 TB", usedGb: 860, swap: 5, psi: 1.2 };
+const cpu = { util: 35, cores: null as number | null, model: null as string | null };
+const ram = { used: 42, total_bytes: 8e9, used_gb: 3.4, swap: 5 };
 
 function wrap(ui: React.ReactElement) {
   return render(<table><tbody><tr>{ui}</tr></tbody></table>);
 }
 
 describe("CpuRamColumn", () => {
-  it("CPU tab: shows core count", () => {
-    wrap(<CpuRamColumn cpu={cpu} ram={ram} activeTab="CPU" />);
-    expect(screen.getByText("128c")).toBeInTheDocument();
-  });
-
   it("CPU tab: heat square fill matches cpu.util", () => {
     wrap(<CpuRamColumn cpu={cpu} ram={ram} activeTab="CPU" />);
     const fills = screen.getAllByTestId("heat-square-fill");
@@ -24,13 +19,17 @@ describe("CpuRamColumn", () => {
   it("CPU tab: ram square fill matches ram.used", () => {
     wrap(<CpuRamColumn cpu={cpu} ram={ram} activeTab="CPU" />);
     const fills = screen.getAllByTestId("heat-square-fill");
-    // Second square is RAM
     expect(fills[1].style.height).toBe("42%");
   });
 
-  it("Swap tab: renders two squares (swap + PSI)", () => {
+  it("CPU tab: shows core count when available", () => {
+    wrap(<CpuRamColumn cpu={{ ...cpu, cores: 128 }} ram={ram} activeTab="CPU" />);
+    expect(screen.getByText("128c")).toBeInTheDocument();
+  });
+
+  it("Swap tab: renders swap square", () => {
     wrap(<CpuRamColumn cpu={cpu} ram={ram} activeTab="Swap" />);
-    expect(screen.getAllByTestId("heat-square")).toHaveLength(2);
+    expect(screen.getByTestId("heat-square")).toBeInTheDocument();
   });
 
   it("0% CPU → empty green square", () => {

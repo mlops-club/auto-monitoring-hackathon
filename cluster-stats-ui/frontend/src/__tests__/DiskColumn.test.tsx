@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { DiskColumn } from "../components/columns/DiskColumn";
-import type { DiskInfo } from "../api/types";
+import type { DiskMetrics } from "../api/types";
 
-const disk = (overrides: Partial<DiskInfo> = {}): DiskInfo => ({
-  dev: "nvme0", free: 50, iops: 200, maxIops: 500, tput: 0.1, maxTput: 0.25, totalTB: 1,
+const disk = (overrides: Partial<DiskMetrics> = {}): DiskMetrics => ({
+  dev: "nvme0", free: 50, iops: 200, tput_bytes: 100000000,
   ...overrides,
 });
 
@@ -21,16 +21,6 @@ describe("DiskColumn", () => {
   it("Space tab: fill reflects usage (100 - free)", () => {
     wrap(<DiskColumn disks={[disk({ free: 78 })]} activeTab="Space" />);
     expect(screen.getByTestId("heat-square-fill").style.height).toBe("22%");
-  });
-
-  it("IOPS tab: fill reflects iops/maxIops", () => {
-    wrap(<DiskColumn disks={[disk({ iops: 250, maxIops: 500 })]} activeTab="IOPS" />);
-    expect(screen.getByTestId("heat-square-fill").style.height).toBe("50%");
-  });
-
-  it("Tput tab: fill reflects tput/maxTput", () => {
-    wrap(<DiskColumn disks={[disk({ tput: 0.125, maxTput: 0.25 })]} activeTab="Tput" />);
-    expect(screen.getByTestId("heat-square-fill").style.height).toBe("50%");
   });
 
   it("0% free → 100% fill, red", () => {

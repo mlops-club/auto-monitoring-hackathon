@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { NetworkColumn } from "../components/columns/NetworkColumn";
-import type { NicInfo } from "../api/types";
+import type { NicMetrics } from "../api/types";
 
-const nic = (overrides: Partial<NicInfo> = {}): NicInfo => ({
-  dev: "eth0", bw: 50, drops: 0, tx: 1, rx: 2,
+const nic = (overrides: Partial<NicMetrics> = {}): NicMetrics => ({
+  dev: "eth0", bw_bytes: 62500000, speed_bytes: 125000000, drops: 0,
   ...overrides,
 });
 
@@ -19,16 +19,17 @@ describe("NetworkColumn", () => {
   });
 
   it("BW tab: fill reflects bandwidth percent", () => {
-    wrap(<NetworkColumn nics={[nic({ bw: 50 })]} activeTab="BW" />);
+    // 62.5M / 125M = 50%
+    wrap(<NetworkColumn nics={[nic()]} activeTab="BW" />);
     expect(screen.getByTestId("heat-square-fill").style.height).toBe("50%");
   });
 
-  it("Drops tab: 0 drops → green (0%)", () => {
+  it("Drops tab: 0 drops → green", () => {
     wrap(<NetworkColumn nics={[nic({ drops: 0 })]} activeTab="Drops" />);
     expect(screen.getByTestId("heat-square-fill")).toHaveClass("green");
   });
 
-  it("Drops tab: >500 drops → red (100%)", () => {
+  it("Drops tab: >500 drops → red", () => {
     wrap(<NetworkColumn nics={[nic({ drops: 1247 })]} activeTab="Drops" />);
     expect(screen.getByTestId("heat-square-fill")).toHaveClass("red");
   });

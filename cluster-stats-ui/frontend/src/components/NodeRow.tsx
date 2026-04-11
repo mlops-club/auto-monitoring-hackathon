@@ -1,4 +1,4 @@
-import type { NodeSummary } from "../api/types";
+import type { NodeMetrics } from "../api/types";
 import { NodeCell } from "./columns/NodeCell";
 import { DiskColumn } from "./columns/DiskColumn";
 import { NetworkColumn } from "./columns/NetworkColumn";
@@ -8,7 +8,7 @@ import { RdmaColumn } from "./columns/RdmaColumn";
 import { PcieColumn } from "./columns/PcieColumn";
 
 interface Props {
-  node: NodeSummary;
+  node: NodeMetrics;
   diskTab: "Space" | "IOPS" | "Tput";
   netTab: "BW" | "Drops";
   cpuRamTab: "CPU" | "Swap";

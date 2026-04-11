@@ -1,56 +1,57 @@
 export interface NodesResponse {
-  nodes: NodeSummary[];
+  nodes: NodeMetrics[];
 }
 
-export interface NodeSummary {
+export interface NodeMetrics {
   id: string;
-  ip: string;
-  health: "ok" | "warn" | "crit";
+  ip: string | null;
+  health: string;
   labels: Record<string, string>;
-  cpu: CpuInfo;
-  ram: RamInfo;
-  disks: DiskInfo[];
-  nics: NicInfo[];
+  cpu: CpuMetrics;
+  ram: RamMetrics;
+  disks: DiskMetrics[];
+  nics: NicMetrics[];
   gpus: null;
   rdma: null;
   pcie: null;
 }
 
-export interface CpuInfo {
-  util: number;
-  cores: number;
-  model: string;
+export interface CpuMetrics {
+  util: number | null;
+  cores: number | null;
+  model: string | null;
 }
 
-export interface RamInfo {
-  used: number;
-  total: string;
-  usedGb: number;
-  swap: number;
-  psi: number;
+export interface RamMetrics {
+  used: number | null;
+  total_bytes: number | null;
+  used_gb: number | null;
+  swap: number | null;
 }
 
-export interface DiskInfo {
+export interface DiskMetrics {
   dev: string;
-  free: number;
-  iops: number;
-  maxIops: number;
-  tput: number;
-  maxTput: number;
-  totalTB: number;
+  free: number | null;
+  iops: number | null;
+  tput_bytes: number | null;
 }
 
-export interface NicInfo {
+export interface NicMetrics {
   dev: string;
-  bw: number;
-  drops: number;
-  tx: number;
-  rx: number;
+  bw_bytes: number | null;
+  speed_bytes: number | null;
+  drops: number | null;
+}
+
+export interface MetricSample {
+  timestamp: number;
+  value: number;
 }
 
 export interface NodeHistoryResponse {
+  node: string;
   metric: string;
-  data: [number, number][];
+  samples: MetricSample[];
 }
 
 export interface NodeLabelsResponse {

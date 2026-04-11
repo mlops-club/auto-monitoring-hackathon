@@ -11,13 +11,13 @@ export const MOCK_NODES: NodesResponse = {
         "node.kubernetes.io/instance-type": "m5.large",
         "topology.kubernetes.io/zone": "us-west-2a",
       },
-      cpu: { util: 35, cores: 2, model: "Intel Xeon Platinum 8259CL" },
-      ram: { used: 42, total: "8 GB", usedGb: 3.4, swap: 0, psi: 0.1 },
+      cpu: { util: 35, cores: null, model: null },
+      ram: { used: 42, total_bytes: 8e9, used_gb: 3.4, swap: 0 },
       disks: [
-        { dev: "nvme0n1", free: 72, iops: 150, maxIops: 3000, tput: 0.12, maxTput: 0.25, totalTB: 0.02 },
+        { dev: "nvme0n1", free: 72, iops: 150, tput_bytes: 125000000 },
       ],
       nics: [
-        { dev: "eth0", bw: 18, drops: 0, tx: 0.5, rx: 1.2 },
+        { dev: "eth0", bw_bytes: 22500000, speed_bytes: 125000000, drops: 0 },
       ],
       gpus: null,
       rdma: null,
@@ -32,15 +32,15 @@ export const MOCK_NODES: NodesResponse = {
         "node.kubernetes.io/instance-type": "m5.large",
         "topology.kubernetes.io/zone": "us-west-2b",
       },
-      cpu: { util: 78, cores: 2, model: "Intel Xeon Platinum 8259CL" },
-      ram: { used: 85, total: "8 GB", usedGb: 6.8, swap: 5, psi: 3.2 },
+      cpu: { util: 78, cores: null, model: null },
+      ram: { used: 85, total_bytes: 8e9, used_gb: 6.8, swap: 5 },
       disks: [
-        { dev: "nvme0n1", free: 15, iops: 2800, maxIops: 3000, tput: 0.22, maxTput: 0.25, totalTB: 0.02 },
-        { dev: "nvme1n1", free: 55, iops: 400, maxIops: 3000, tput: 0.05, maxTput: 0.25, totalTB: 0.02 },
+        { dev: "nvme0n1", free: 15, iops: 2800, tput_bytes: 220000000 },
+        { dev: "nvme1n1", free: 55, iops: 400, tput_bytes: 50000000 },
       ],
       nics: [
-        { dev: "eth0", bw: 65, drops: 42, tx: 3.2, rx: 4.1 },
-        { dev: "eth1", bw: 30, drops: 0, tx: 1.0, rx: 0.8 },
+        { dev: "eth0", bw_bytes: 81250000, speed_bytes: 125000000, drops: 42 },
+        { dev: "eth1", bw_bytes: 37500000, speed_bytes: 125000000, drops: 0 },
       ],
       gpus: null,
       rdma: null,
@@ -55,13 +55,13 @@ export const MOCK_NODES: NodesResponse = {
         "node.kubernetes.io/instance-type": "m5.large",
         "topology.kubernetes.io/zone": "us-west-2a",
       },
-      cpu: { util: 97, cores: 2, model: "Intel Xeon Platinum 8259CL" },
-      ram: { used: 94, total: "8 GB", usedGb: 7.5, swap: 18, psi: 22.0 },
+      cpu: { util: 97, cores: null, model: null },
+      ram: { used: 94, total_bytes: 8e9, used_gb: 7.5, swap: 18 },
       disks: [
-        { dev: "nvme0n1", free: 3, iops: 2950, maxIops: 3000, tput: 0.24, maxTput: 0.25, totalTB: 0.02 },
+        { dev: "nvme0n1", free: 3, iops: 2950, tput_bytes: 240000000 },
       ],
       nics: [
-        { dev: "eth0", bw: 92, drops: 1580, tx: 8.5, rx: 9.2 },
+        { dev: "eth0", bw_bytes: 115000000, speed_bytes: 125000000, drops: 1580 },
       ],
       gpus: null,
       rdma: null,
@@ -80,9 +80,9 @@ export const MOCK_LABELS: NodeLabelsResponse = {
 
 export function mockNodeHistory(metric: string): NodeHistoryResponse {
   const now = Math.floor(Date.now() / 1000);
-  const data: [number, number][] = [];
+  const samples = [];
   for (let i = 59; i >= 0; i--) {
-    data.push([now - i * 60, Math.random() * 100]);
+    samples.push({ timestamp: now - i * 60, value: Math.random() * 100 });
   }
-  return { metric, data };
+  return { node: "mock", metric, samples };
 }

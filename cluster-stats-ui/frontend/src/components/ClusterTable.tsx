@@ -1,17 +1,17 @@
 import { useState, useMemo } from "react";
-import type { NodeSummary } from "../api/types";
+import type { NodeMetrics } from "../api/types";
 import { TabBar } from "./primitives/TabBar";
 import { NodeRow } from "./NodeRow";
 
 const COL_COUNT = 7;
 
 interface Props {
-  nodes: NodeSummary[];
+  nodes: NodeMetrics[];
   groupBy: string | null;
 }
 
-function groupNodes(nodes: NodeSummary[], key: string): Map<string, NodeSummary[]> {
-  const groups = new Map<string, NodeSummary[]>();
+function groupNodes(nodes: NodeMetrics[], key: string): Map<string, NodeMetrics[]> {
+  const groups = new Map<string, NodeMetrics[]>();
   for (const node of nodes) {
     const val = node.labels[key] ?? "unknown";
     const list = groups.get(val);
@@ -32,7 +32,7 @@ export function ClusterTable({ nodes, groupBy }: Props) {
     [nodes, groupBy],
   );
 
-  const renderRow = (node: NodeSummary) => (
+  const renderRow = (node: NodeMetrics) => (
     <NodeRow key={node.id} node={node} diskTab={diskTab} netTab={netTab} cpuRamTab={cpuRamTab} />
   );
 

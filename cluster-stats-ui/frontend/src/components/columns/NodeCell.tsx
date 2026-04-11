@@ -1,8 +1,8 @@
 import { useState } from "react";
-import type { NodeSummary } from "../../api/types";
+import type { NodeMetrics } from "../../api/types";
 
 interface Props {
-  node: Pick<NodeSummary, "id" | "ip" | "health" | "labels">;
+  node: Pick<NodeMetrics, "id" | "ip" | "health" | "labels">;
 }
 
 export function NodeCell({ node }: Props) {
