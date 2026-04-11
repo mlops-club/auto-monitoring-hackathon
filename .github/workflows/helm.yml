@@ -40,7 +40,7 @@ jobs:
 
       - name: Install helm-diff plugin
         run: |
-          helm plugin install https://github.com/databus23/helm-diff || helm plugin update diff
+          helm plugin install --verify=false https://github.com/databus23/helm-diff || helm plugin update diff
           helm diff version
 
       - name: AWS + EKS auth
