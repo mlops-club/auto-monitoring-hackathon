@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - "apigw-rest-api/**"
+      - ".github/workflows/hello-api-cdk.yml"
   push:
     branches: [main]
     paths:
       - "apigw-rest-api/**"
+      - ".github/workflows/hello-api-cdk.yml"
   workflow_dispatch:
 
 permissions:
