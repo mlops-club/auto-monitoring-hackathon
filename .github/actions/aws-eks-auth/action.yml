@@ -1,6 +1,7 @@
 name: AWS + EKS Auth
 description: >
-  Two-step auth: assume OIDC role, chain into EKS MastersRole, configure kubectl.
+  Assume OIDC role (AdminAccess for AWS API calls) and configure kubectl
+  to use the MastersRole for Kubernetes API calls via --role-arn.
 
 inputs:
   aws-role-arn:
@@ -25,13 +26,10 @@ runs:
         role-to-assume: ${{ inputs.aws-role-arn }}
         aws-region: ${{ inputs.aws-region }}
 
-    - name: Chain into EKS MastersRole
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: ${{ inputs.masters-role-arn }}
-        aws-region: ${{ inputs.aws-region }}
-        role-chaining: true
-
-    - name: Configure kubectl
-      run: aws eks update-kubeconfig --name ${{ inputs.cluster-name }} --region ${{ inputs.aws-region }}
+    - name: Configure kubectl (assumes MastersRole per-call)
+      run: >
+        aws eks update-kubeconfig
+        --name ${{ inputs.cluster-name }}
+        --region ${{ inputs.aws-region }}
+        --role-arn ${{ inputs.masters-role-arn }}
       shell: bash
