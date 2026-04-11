@@ -90,4 +90,4 @@ jobs:
       - name: Run functional tests
         env:
           CS_BACKEND_BASE_URL: http://localhost:3000
-        run: uv run pytest tests/functional_tests/ -v -m "not slow"
+        run: uv run pytest tests/functional_tests/ -v
