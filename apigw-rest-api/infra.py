@@ -40,10 +40,10 @@ SERVICE_NAME = "hello-api"
 
 ENV = cdk.Environment(account="292783887127", region="us-west-2")
 
-# ADOT collector Lambda layer (x86_64, us-west-2)
+# ADOT collector Lambda layer (ARM64, us-west-2)
 # https://aws-otel.github.io/docs/getting-started/lambda
 ADOT_COLLECTOR_LAYER_ARN = (
-    "arn:aws:lambda:us-west-2:901920570463:layer:aws-otel-collector-amd64-ver-0-117-0:1"
+    "arn:aws:lambda:us-west-2:901920570463:layer:aws-otel-collector-arm64-ver-0-117-0:1"
 )
 
 _ASSETS_TO_EXCLUDE: list[str] = [
@@ -72,7 +72,7 @@ class HelloApiStack(Stack):
             "HelloApiLayer",
             layer_version_name="hello-api-deps",
             description="Python dependencies for Hello API",
-            compatible_architectures=[_lambda.Architecture.X86_64],
+            compatible_architectures=[_lambda.Architecture.ARM_64],
             compatible_runtimes=[_lambda.Runtime.PYTHON_3_12],
             code=_lambda.Code.from_asset(
                 path=THIS_DIR.as_posix(),
@@ -81,10 +81,11 @@ class HelloApiStack(Stack):
                 asset_hash=hashlib.sha256(
                     (THIS_DIR / "pyproject.toml").read_bytes()
                     + (THIS_DIR / "uv.lock").read_bytes()
-                    + b"x86_64"
+                    + b"arm64"
                 ).hexdigest(),
                 bundling=cdk.BundlingOptions(
                     image=_lambda.Runtime.PYTHON_3_12.bundling_image,
+                    platform="linux/arm64",
                     command=[
                         "bash",
                         "-c",
@@ -124,7 +125,7 @@ class HelloApiStack(Stack):
             function_name="hello-api",
             description="Hello API Lambda with OTel instrumentation via ADOT",
             runtime=_lambda.Runtime.PYTHON_3_12,
-            architecture=_lambda.Architecture.X86_64,
+            architecture=_lambda.Architecture.ARM_64,
             memory_size=256,
             handler="hello_api.aws_lambda_handler.handler",
             timeout=cdk.Duration.seconds(30),
