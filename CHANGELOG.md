@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-04-11 — CI/CD for CDK and Helm Deployments
+
+### Why
+
+CDK and Helm deployments were manual. We needed GitHub Actions workflows to
+automate infrastructure provisioning and Helm chart deploys on push to main,
+plus helm-diff comments on PRs so reviewers can see what will change.
+
+### What changed
+
+#### 1. GitHub Actions workflows
+
+- **`cdk.yml`** — runs `cdk diff` on PRs and `cdk deploy` on push to main.
+  Uses a reusable `aws-eks-auth` action for AWS/EKS authentication.
+- **`helm.yml`** — runs `helm diff` on PRs (posts a comment with the diff) and
+  `helm deploy` on push to main via the existing `deploy-monitoring.sh` script.
+
+#### 2. Reusable AWS + EKS auth action (`.github/actions/aws-eks-auth`)
+
+Composite action that assumes an IAM role via OIDC, then assumes the EKS
+masters role and updates kubeconfig. Used by both workflows.
+
+#### 3. IAM / CDK fixes (`infra/infra.py`, `infra/github-oidc-stack.py`)
+
+- Granted `sts:TagSession` on MastersRole for GitHub Actions role chaining.
+- Granted `eks:DescribeCluster` to MastersRole for kubeconfig setup.
+- Used `--role-arn` in kubeconfig instead of role chaining (avoids a double
+  assume-role that was failing in CI).
+
+#### 4. Helm-diff plugin install fix (`.github/workflows/helm.yml`)
+
+The original `helm plugin install ... || true` silently swallowed failures.
+Newer Helm versions also require `--verify=false` for git-sourced plugins.
+Fixed to use `--verify=false`, fall back to `helm plugin update`, and verify
+with `helm diff version`.
+
+#### 5. setup-uv cache disabled (`cdk.yml`)
+
+Disabled uv cache since the repo has no `uv.lock` file, which was causing
+cache restore failures.
+
+### How it was verified
+
+All CI checks passed on PR #3. The helm-diff PR comment now shows actual diff
+output (previously showed "unknown command diff" errors). CDK workflow runs
+successfully.
+
 ## 2026-04-10 — External OTLP Ingress, Alloy IRSA, and Metric Streams Guide
 
 ### Why
