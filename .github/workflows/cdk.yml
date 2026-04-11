@@ -1,0 +1,133 @@
+name: CDK
+
+on:
+  pull_request:
+    paths:
+      - "infra/infra.py"
+      - "infra/cdk.context.json"
+      - "infra/metric-streams-stack.py"
+  push:
+    branches: [main]
+    paths:
+      - "infra/infra.py"
+      - "infra/cdk.context.json"
+      - "infra/metric-streams-stack.py"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: cdk-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  # ── PR: run cdk diff and post a comment ────────────────────────────
+  cdk-diff:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Assume OIDC role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK diff
+        id: diff
+        run: |
+          set +e
+          OUTPUT=$(npx cdk diff --all --app "uv run infra/infra.py" 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+          # Write to file for the comment step (avoids escaping issues)
+          echo "$OUTPUT" > /tmp/cdk-diff.txt
+
+          # Also print to logs
+          echo "$OUTPUT"
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const diff = fs.readFileSync('/tmp/cdk-diff.txt', 'utf8');
+            const exitCode = '${{ steps.diff.outputs.exit_code }}';
+            const status = exitCode === '0' ? 'No changes' : 'Changes detected';
+            const marker = '<!-- cdk-diff -->';
+
+            const body = [
+              marker,
+              `### CDK Diff \u2014 ${status}`,
+              '',
+              '<details>',
+              '<summary>Click to expand</summary>',
+              '',
+              '```',
+              diff,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # ── Main / manual: deploy CDK stacks ───────────────────────────────
+  cdk-deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Assume OIDC role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK deploy
+        run: npx cdk deploy --all --app "uv run infra/infra.py" --require-approval never

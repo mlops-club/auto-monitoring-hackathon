@@ -13,8 +13,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="monitoring"
-AWS_PROFILE="${AWS_PROFILE:-subq-sandbox}"
+AWS_PROFILE="${AWS_PROFILE:-}"
 AWS_REGION="${AWS_REGION:-us-west-2}"
+# Build --profile flag only when AWS_PROFILE is set (CI uses env-var creds instead)
+PROFILE_FLAG="${AWS_PROFILE:+--profile $AWS_PROFILE}"
 STACK_NAME="AutoMonitoringEks"
 CLUSTER_NAME="auto-monitoring"
 
@@ -32,7 +34,7 @@ cfn_output() {
     --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
     --output text \
     --region "$AWS_REGION" \
-    --profile "$AWS_PROFILE" 2>/dev/null || echo ""
+    $PROFILE_FLAG 2>/dev/null || echo ""
 }
 
 S3_BUCKET=$(cfn_output ObsBucketName)
@@ -47,7 +49,7 @@ for var in S3_BUCKET CERT_ARN LB_CONTROLLER_ROLE_ARN EXTERNAL_DNS_ROLE_ARN ALLOY
     echo "ERROR: Could not retrieve $var from stack '$STACK_NAME'."
     echo ""
     echo "Deploy the CDK stack first:"
-    echo "  npx cdk deploy --app 'uv run infra/infra.py' --profile $AWS_PROFILE"
+    echo "  npx cdk deploy --app 'uv run infra/infra.py' ${AWS_PROFILE:+--profile $AWS_PROFILE}"
     exit 1
   fi
 done
@@ -97,7 +99,7 @@ helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-contro
   --set vpcId="$(aws ec2 describe-vpcs \
     --filters "Name=tag:project,Values=auto-monitoring-hackathon" \
     --query "Vpcs[0].VpcId" --output text \
-    --region "$AWS_REGION" --profile "$AWS_PROFILE")" \
+    --region "$AWS_REGION" $PROFILE_FLAG)" \
   --wait --timeout 5m
 echo "  Done."
 

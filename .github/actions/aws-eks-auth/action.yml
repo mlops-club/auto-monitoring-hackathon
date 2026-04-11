@@ -1,0 +1,35 @@
+name: AWS + EKS Auth
+description: >
+  Assume OIDC role (AdminAccess for AWS API calls) and configure kubectl
+  to use the MastersRole for Kubernetes API calls via --role-arn.
+
+inputs:
+  aws-role-arn:
+    description: GitHub Actions OIDC role ARN
+    required: true
+  masters-role-arn:
+    description: EKS MastersRole ARN (for kubectl access)
+    required: true
+  aws-region:
+    description: AWS region
+    required: true
+  cluster-name:
+    description: EKS cluster name
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Assume OIDC role
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Configure kubectl (assumes MastersRole per-call)
+      run: >
+        aws eks update-kubeconfig
+        --name ${{ inputs.cluster-name }}
+        --region ${{ inputs.aws-region }}
+        --role-arn ${{ inputs.masters-role-arn }}
+      shell: bash

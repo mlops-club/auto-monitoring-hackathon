@@ -95,6 +95,22 @@ class EksStack(Stack):
             "MastersRole",
             assumed_by=iam.AccountRootPrincipal(),
         )
+        # Allow sts:TagSession so GitHub Actions can chain into this role
+        masters_role.assume_role_policy.add_statements(
+            iam.PolicyStatement(
+                actions=["sts:TagSession"],
+                principals=[iam.AccountRootPrincipal()],
+            )
+        )
+        # MastersRole needs eks:DescribeCluster for `aws eks update-kubeconfig`
+        masters_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["eks:DescribeCluster"],
+                resources=[
+                    f"arn:aws:eks:{cdk.Aws.REGION}:{cdk.Aws.ACCOUNT_ID}:cluster/{CLUSTER_NAME}"
+                ],
+            )
+        )
 
         # --- EKS Cluster ---
         cluster = eks.Cluster(
