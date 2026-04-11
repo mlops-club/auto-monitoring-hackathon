@@ -105,6 +105,11 @@ alloy:
           regex         = "metrics"
           action        = "keep"
         }
+        // Attach K8s node name to all scraped metrics for joining with K8s API labels
+        rule {
+          source_labels = ["__meta_kubernetes_pod_node_name"]
+          target_label  = "node"
+        }
       }
 
       prometheus.scrape "node_exporter" {
@@ -126,6 +131,11 @@ alloy:
         rule {
           replacement  = "/metrics/cadvisor"
           target_label = "__metrics_path__"
+        }
+        // Attach K8s node name to all scraped metrics
+        rule {
+          source_labels = ["__meta_kubernetes_node_name"]
+          target_label  = "node"
         }
       }
 

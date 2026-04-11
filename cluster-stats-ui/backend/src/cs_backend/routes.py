@@ -3,7 +3,8 @@
 import structlog
 from fastapi import APIRouter, Depends, Request
 
-from cs_backend.schemas import HealthResponse, UiProbeResponse
+from cs_backend.k8s import get_node_labels
+from cs_backend.schemas import HealthResponse, NodeLabelsResponse, UiProbeResponse
 from cs_backend.settings import Settings
 
 LOGGER = structlog.get_logger(__name__)
@@ -24,6 +25,16 @@ async def get_health(
 ) -> HealthResponse:
     """Check the health of the API."""
     return HealthResponse(status="healthy", app_name=settings.app_name)
+
+
+@ROUTER.get(
+    "/api/labels",
+    tags=["Cluster"],
+    summary="K8s node labels",
+)
+async def get_labels() -> NodeLabelsResponse:
+    """Return K8s labels for every node in the cluster (cached ~60 s)."""
+    return NodeLabelsResponse(nodes=get_node_labels())
 
 
 @ROUTER.get(

@@ -1,5 +1,56 @@
 # Changelog
 
+## 2026-04-11 — K8s node labels API + metric-to-node mapping in Alloy
+
+### Why
+
+The monitoring dashboard needs to filter/group nodes by K8s labels (zone,
+instance type, etc.) and join those labels to metric streams. Node-exporter
+metrics only carried `instance=IP:port` — there was no way to correlate metrics
+to K8s node names or their labels.
+
+### What changed
+
+#### 1. Alloy relabel rules (`infra/k8s/helm/values/alloy.yaml`)
+
+Added `node` relabel rules to both `node_exporter` and `cadvisor` discovery
+blocks so all scraped metrics carry the K8s node name. This enables joining
+metrics to K8s API labels on node name.
+
+- `node_exporter`: copies `__meta_kubernetes_pod_node_name` → `node`
+- `cadvisor`: copies `__meta_kubernetes_node_name` → `node`
+
+#### 2. K8s node labels endpoint (`cluster-stats-ui/backend/`)
+
+- **New module `k8s.py`** — queries the K8s API (`list_node()`) for node labels
+  with a 60-second TTL cache. Uses in-cluster config when deployed, falls back
+  to `~/.kube/config` for local development.
+- **New endpoint `GET /api/labels`** — returns
+  `{nodes: {node_name: {label_key: label_value}}}` for populating filter
+  dropdowns in the UI.
+- **New schema `NodeLabelsResponse`** — Pydantic model with OpenAPI examples.
+- **New dependency `kubernetes`** — Python client for K8s API access.
+- **Settings update** — changed `mimir_base_url` default from `localhost:9090`
+  to `http://mimir:8080` to match the in-cluster Mimir service.
+
+#### 3. RBAC for backend ServiceAccount (`infra/k8s/helm/rbac-node-reader.yaml`)
+
+New ClusterRole + ClusterRoleBinding granting the `cs-backend` ServiceAccount
+`get`/`list` access to nodes. Applied via the deploy script.
+
+#### 4. Deploy script update (`infra/k8s/helm/deploy-monitoring.sh`)
+
+Added `kubectl apply` step for the RBAC manifest before ingress resources.
+
+### How it was verified
+
+- All 9 existing backend unit tests pass.
+- `GET /api/labels` returns correct node labels for both EKS nodes, matching
+  `kubectl get nodes --show-labels` output (instance type, AZ, capacity type,
+  etc.).
+- Verified via `curl http://localhost:3000/api/labels` and the interactive
+  `/docs` Swagger UI.
+
 ## 2026-04-11 — Cluster Stats UI frontend scaffold and local run flows
 
 ### Why
