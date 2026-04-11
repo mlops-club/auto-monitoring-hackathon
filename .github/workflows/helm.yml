@@ -1,0 +1,174 @@
+name: Helm
+
+on:
+  pull_request:
+    paths:
+      - "infra/k8s/**"
+  push:
+    branches: [main]
+    paths:
+      - "infra/k8s/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: helm-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  NAMESPACE: monitoring
+
+jobs:
+  # ── PR: run helm diff and post a comment ───────────────────────────
+  helm-diff:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext
+
+      - name: Install helm-diff plugin
+        run: helm plugin install https://github.com/databus23/helm-diff || true
+
+      - name: AWS + EKS auth
+        uses: ./.github/actions/aws-eks-auth
+        with:
+          aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
+          masters-role-arn: ${{ vars.EKS_MASTERS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          cluster-name: ${{ vars.EKS_CLUSTER_NAME }}
+
+      - name: Add Helm repos
+        run: |
+          helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+          helm repo add eks https://aws.github.io/eks-charts 2>/dev/null || true
+          helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/ 2>/dev/null || true
+          helm repo update
+
+      - name: Fetch CloudFormation outputs
+        id: cfn
+        run: |
+          cfn_output() {
+            aws cloudformation describe-stacks \
+              --stack-name AutoMonitoringEks \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
+              --output text \
+              --region "$AWS_REGION"
+          }
+          echo "S3_BUCKET=$(cfn_output ObsBucketName)" >> "$GITHUB_ENV"
+          echo "CERT_ARN=$(cfn_output WildcardCertArn)" >> "$GITHUB_ENV"
+
+      - name: Helm diff
+        id: diff
+        run: |
+          SCRIPT_DIR="infra/k8s/helm"
+          export S3_BUCKET AWS_REGION CERT_ARN
+
+          helm_diff() {
+            local name="$1" chart="$2" values_file="$3"
+            shift 3
+            echo "=== $name ==="
+            envsubst '$S3_BUCKET $AWS_REGION $CERT_ARN' < "$SCRIPT_DIR/values/$values_file" | \
+              helm diff upgrade "$name" "$chart" \
+                --namespace "$NAMESPACE" \
+                -f - \
+                "$@" \
+                --allow-unreleased 2>&1 || true
+            echo ""
+          }
+
+          {
+            helm_diff mimir         grafana/mimir-distributed              mimir.yaml
+            helm_diff loki          grafana/loki                           loki.yaml
+            helm_diff tempo         grafana/tempo                          tempo.yaml
+            helm_diff pyroscope     grafana/pyroscope                      pyroscope.yaml
+            helm_diff node-exporter prometheus-community/prometheus-node-exporter node-exporter.yaml
+            helm_diff alloy         grafana/alloy                          alloy.yaml
+            helm_diff grafana       grafana/grafana                        grafana.yaml
+          } > /tmp/helm-diff.txt 2>&1
+
+          cat /tmp/helm-diff.txt
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const diff = fs.readFileSync('/tmp/helm-diff.txt', 'utf8').trim();
+            const marker = '<!-- helm-diff -->';
+            const hasChanges = diff.length > 0 && !diff.match(/^(=== \w+ ===\s*)+$/);
+            const status = hasChanges ? 'Changes detected' : 'No changes';
+
+            const body = [
+              marker,
+              `### Helm Diff \u2014 ${status}`,
+              '',
+              '<details>',
+              '<summary>Click to expand</summary>',
+              '',
+              '```diff',
+              diff,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # ── Main / manual: deploy Helm charts ──────────────────────────────
+  helm-deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext
+
+      - name: AWS + EKS auth
+        uses: ./.github/actions/aws-eks-auth
+        with:
+          aws-role-arn: ${{ vars.AWS_ROLE_ARN }}
+          masters-role-arn: ${{ vars.EKS_MASTERS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          cluster-name: ${{ vars.EKS_CLUSTER_NAME }}
+
+      - name: Deploy monitoring stack
+        run: bash infra/k8s/helm/deploy-monitoring.sh

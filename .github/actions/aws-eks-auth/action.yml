@@ -1,0 +1,37 @@
+name: AWS + EKS Auth
+description: >
+  Two-step auth: assume OIDC role, chain into EKS MastersRole, configure kubectl.
+
+inputs:
+  aws-role-arn:
+    description: GitHub Actions OIDC role ARN
+    required: true
+  masters-role-arn:
+    description: EKS MastersRole ARN (for kubectl access)
+    required: true
+  aws-region:
+    description: AWS region
+    required: true
+  cluster-name:
+    description: EKS cluster name
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Assume OIDC role
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Chain into EKS MastersRole
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.masters-role-arn }}
+        aws-region: ${{ inputs.aws-region }}
+        role-chaining: true
+
+    - name: Configure kubectl
+      run: aws eks update-kubeconfig --name ${{ inputs.cluster-name }} --region ${{ inputs.aws-region }}
+      shell: bash
