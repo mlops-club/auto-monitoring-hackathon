@@ -44,16 +44,16 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
 
 ### 2.c - Custom, dockerized FastAPI app running locally
 
-1. [ ] Create a FastAPI app that has a 
-   1. [ ] uses the `create_app()` pattern
-   2. [ ] manages dependencies with `uv`
-   3. [ ] manages settings with `pydantic-settings` and the settings dict
-   4. [ ] Make it a proper package with an `src/` folder via `uv init`
-   5. [ ] Has a `tests/` framework set up as in [this reference project](https://github.com/mlops-club/cloud-course-project/tree/main/tests)
-      1. [ ] Local tests that mock everything without filling the code with stubs (think `moto`)
-      2. [ ] Functional tests that point at external components, e.g. the database, AWS, other APIs, etc.
-   6. [ ] Uses pydantic models to ensure OpenAPI docs are correct
-   7. [ ] Uses proper HTTP verbs and nouns in all endpoints
+1. [x] Create a FastAPI app that has a 
+   1. [x] uses the `create_app()` pattern
+   2. [x] manages dependencies with `uv`
+   3. [x] manages settings with `pydantic-settings` and the settings dict
+   4. [x] Make it a proper package with an `src/` folder via `uv init`
+   5. [x] Has a `tests/` framework set up as in [this reference project](https://github.com/mlops-club/cloud-course-project/tree/main/tests)
+      1. [x] Local tests that mock everything without filling the code with stubs (think `moto`)
+      2. [x] Functional tests that point at external components, e.g. the database, AWS, other APIs, etc.
+   6. [x] Uses pydantic models to ensure OpenAPI docs are correct
+   7. [x] Uses proper HTTP verbs and nouns in all endpoints
 2. [ ] Instrument with OTel following the patterns [shown here](https://github.com/mlops-club/cloud-course-project/tree/main/src/files_api/monitoring), but use the OTel SDKs, not AWS Xray
 
 ### 2.d - Custom, dockerized FastAPI app deployed to EKS
@@ -69,16 +69,16 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
 
 ### 2. Full-stack FastAPI app
 
-1. [ ] Create a FastAPI app in `cluster-stats-ui/backend/src/cs_backend/`
-   1. [ ] uses the `create_app()` pattern
-   2. [ ] manages dependencies with `uv`
-   3. [ ] manages settings with `pydantic-settings` and the settings dict
-   4. [ ] Make it a proper package with an `src/` folder via `uv init`
-   5. [ ] Has a `tests/` framework set up as in [this reference project](https://github.com/mlops-club/cloud-course-project/tree/main/tests)
-      1. [ ] Local tests that mock everything without filling the code with stubs (think `moto`)
-      2. [ ] Functional tests that point at external components, e.g. the database, AWS, other APIs, etc.
-   6. [ ] Uses pydantic models to ensure OpenAPI docs are correct
-   7. [ ] Uses proper HTTP verbs and nouns in all endpoints
+1. [x] Create a FastAPI app in `cluster-stats-ui/backend/src/cs_backend/`
+   1. [x] uses the `create_app()` pattern
+   2. [x] manages dependencies with `uv`
+   3. [x] manages settings with `pydantic-settings` and the settings dict
+   4. [x] Make it a proper package with an `src/` folder via `uv init`
+   5. [x] Has a `tests/` framework set up as in [this reference project](https://github.com/mlops-club/cloud-course-project/tree/main/tests)
+      1. [x] Local tests that mock everything without filling the code with stubs (think `moto`)
+      2. [x] Functional tests that point at external components, e.g. the database, AWS, other APIs, etc.
+   6. [x] Uses pydantic models to ensure OpenAPI docs are correct
+   7. [x] Uses proper HTTP verbs and nouns in all endpoints
 
 2. [ ] Create a frontend application in `cluster-stats-ui/frontend/`
    1. [ ] Follow the pattern shown in [this repo](https://github.com/phitoduck/come-follow-me-app/tree/main/rs-frontend/src)
