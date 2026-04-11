@@ -95,12 +95,15 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
       3. [x] Add some basic `pytest` tests that validate that files are served when a request is made to the serving endpoint
       4. [x] Create a new GitHub Actions workflow that executes these tests on PR open and pushed commits to an open PR branch; only run the tests when files related to the frontend/backend are changed
 
-3. [ ] Convert the `docs/cluster-view.html` script to TypeScript/React and have it powered by queries to the FastAPI backend, which in turn query mimir metrics
-   1. [ ] Have two local development modes: 
-      1. [ ] run everything in docker-compose.yaml locally in a single stack: node exporter, alloy, fastapi with a volume mount that watches the frontend and backend directories for changes and triggers rebuilds
-      2. [ ] run the bundled fastapi/react app and point it at the real mimir service in EKS using `kubectl` to portforward mimir (Amit does not believe this is possible, prove him wrong; Please I will be fired if I can't convince him 😭)
-   2. [ ] Design and implement some playwright tests that rely on running the entire app and mimir, node exporter, fastapi stack in docker-compose with some sample data (or mock node exporter metrics if you can) and have playwright validate that certain things show up on screen
-   3. [ ] Add to the github actions workflow this playwright test suite. Ensure that jobs that can be parallelized in the workflow are indeed parallelized.
+3. [ ] Convert the `docs/cluster-view.html` script to TypeScript/React and have it powered by queries to the FastAPI backend, which in turn query mimir metrics. **See [UI_PLAN.md](UI_PLAN.md) for the expanded, incremental plan with verification steps.**
+   0. [ ] **Phase 0** — Verify existing node-exporter metrics are queryable in Mimir (zero code changes, just curl)
+   1. [ ] **Phase 1** — Add `node` relabel in Alloy + query K8s API directly for node labels (no kube-state-metrics needed)
+   2. [ ] **Phase 2** — FastAPI backend: add `/api/nodes`, `/api/nodes/{id}/history`, `/api/labels` endpoints querying Mimir
+   3. [ ] **Phase 3** — React UI: port cluster-view.html to React, wire to backend. Node-exporter metrics only (CPU, RAM, disk, network). GPU/RDMA/PCIe stubbed.
+   4. [ ] **Phase 4** — GPU metrics: deploy [run-ai/fake-gpu-operator](https://github.com/run-ai/fake-gpu-operator) (Helm) for core DCGM metrics + small supplement exporter for temp/power, un-stub GPU column
+   5. [ ] **Phase 5** — Docker-compose local dev stack: mimir + alloy + node-exporter + mock-dcgm + backend + frontend
+      - Also: port-forward mode pointing at real EKS Mimir (prove Amit wrong)
+   6. [ ] **Phase 6** — Playwright e2e tests against docker-compose stack, add to GitHub Actions (parallelized)
 
 4. [ ] Instrument FastAPI app with OTel following the patterns [shown here](https://github.com/mlops-club/cloud-course-project/tree/main/src/files_api/monitoring), but use the OTel SDKs, not AWS Xray
    1. [ ] Verify this by
