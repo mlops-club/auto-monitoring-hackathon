@@ -1,5 +1,23 @@
 # UI Plan: Cluster Monitoring Dashboard
 
+## Progress Tracker
+
+| Phase | Description | Status | PR |
+|-------|-------------|--------|-----|
+| **0** | Verify existing node-exporter metrics reach Mimir | Not started | — |
+| **1** | K8s labels via API + metric→node mapping in Alloy | **Done** | [#13](https://github.com/mlops-club/auto-monitoring-hackathon/pull/13) |
+| **1.1** | Add `node` relabel rule to Alloy (node_exporter + cAdvisor) | **Done** | #13 |
+| **1.2** | FastAPI `GET /api/labels` endpoint (K8s node labels, 60s cache) | **Done** | #13 |
+| **1.3** | RBAC ClusterRole/Binding for backend ServiceAccount | **Done** | #13 |
+| **1.4** | Deploy & verify relabel + labels endpoint | Partially done (endpoint verified locally; Alloy redeploy pending) | #13 |
+| **2** | FastAPI backend — Mimir query endpoints (`/api/nodes`, `/api/nodes/{node}/history`) | Not started | — |
+| **3** | React UI — display real node-exporter metrics | Not started | — |
+| **4** | Mock DCGM exporter for GPU metrics | Not started | — |
+| **5** | Docker-compose local development stack | Not started | — |
+| **6** | Playwright end-to-end tests | Not started | — |
+
+---
+
 ## Metric Gap Analysis
 
 ### What the vibe-coded UI (`docs/cluster-view.html`) displays
