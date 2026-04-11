@@ -10,4 +10,5 @@ sys.path.insert(0, str(TESTS_DIR_PARENT))
 
 pytest_plugins = [
     "tests.fixtures.api_client",
+    "tests.fixtures.mimir_responses",
 ]

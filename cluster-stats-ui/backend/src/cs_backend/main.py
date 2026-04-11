@@ -1,5 +1,6 @@
 """Entrypoint for the Cluster Stats backend."""
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import structlog
@@ -7,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 
 from cs_backend.errors import handle_errors_globally
+from cs_backend.mimir import MimirClient
 from cs_backend.routes import ROUTER
 from cs_backend.settings import Settings
 
@@ -20,6 +22,20 @@ RESERVED_PATH_PREFIXES = {
 }
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    settings: Settings = app.state.settings
+    app.state.mimir_client = MimirClient(
+        base_url=settings.mimir_base_url,
+        tenant_id=settings.mimir_tenant_id,
+        timeout=settings.mimir_timeout_seconds,
+    )
+    try:
+        yield
+    finally:
+        await app.state.mimir_client.aclose()
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or Settings()
 
@@ -28,6 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title=settings.app_name,
         version="v1",
         summary="Backend API for the Cluster Stats monitoring UI.",
+        lifespan=_lifespan,
     )
 
     app.state.settings = settings

@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     app_name: str = "Cluster Stats API"
     debug: bool = False
     mimir_base_url: str = "http://mimir:8080"
+    mimir_tenant_id: str = "anonymous"
+    mimir_timeout_seconds: float = 10.0
     api_prefix: str = "/api"
     static_dir: Path = Field(default_factory=lambda: Path(__file__).resolve().parent / "static")
 
