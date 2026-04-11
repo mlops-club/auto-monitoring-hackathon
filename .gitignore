@@ -2,3 +2,7 @@
 *cdk.out
 *cdk.context.json
 .superset
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
