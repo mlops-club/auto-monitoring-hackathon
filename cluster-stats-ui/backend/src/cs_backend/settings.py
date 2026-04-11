@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Cluster Stats API"
     debug: bool = False
-    mimir_base_url: str = "http://localhost:9090"
+    mimir_base_url: str = "http://mimir:8080"
     api_prefix: str = "/api"
     static_dir: Path = Field(default_factory=lambda: Path(__file__).resolve().parent / "static")
 

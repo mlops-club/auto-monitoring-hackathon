@@ -136,7 +136,12 @@ deploy alloy          grafana/alloy                                   alloy.yaml
 # ─── 4. Visualization ───────────────────────────────────────────────
 deploy grafana        grafana/grafana                                 grafana.yaml
 
-# ─── 5. Ingress resources ────────────────────────────────────────────
+# ─── 5. RBAC for backend ServiceAccount ──────────────────────────────
+echo "Applying RBAC for cs-backend (node-reader)..."
+kubectl apply -f "$SCRIPT_DIR/rbac-node-reader.yaml"
+echo "  Done."
+
+# ─── 6. Ingress resources ────────────────────────────────────────────
 echo "Applying ingress resources..."
 envsubst '$CERT_ARN' < "$SCRIPT_DIR/ingress.yaml" | kubectl apply -f -
 echo "  Done."

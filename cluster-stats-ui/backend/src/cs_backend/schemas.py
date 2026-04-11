@@ -40,3 +40,26 @@ class ErrorResponse(BaseModel):
 class UiProbeResponse(BaseModel):
     message: str = Field(..., description="Confirmation that the UI reached the backend")
     request_path: str = Field(..., description="Path received by the backend")
+
+
+class NodeLabelsResponse(BaseModel):
+    nodes: dict[str, dict[str, str]] = Field(
+        ...,
+        description="Mapping of node name to its K8s labels",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "nodes": {
+                        "ip-10-0-1-45.us-west-2.compute.internal": {
+                            "kubernetes.io/os": "linux",
+                            "node.kubernetes.io/instance-type": "m5.xlarge",
+                            "topology.kubernetes.io/zone": "us-west-2a",
+                        }
+                    }
+                }
+            ]
+        },
+    )

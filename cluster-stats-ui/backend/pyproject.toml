@@ -13,6 +13,7 @@ dependencies = [
     "pydantic-settings",
     "structlog",
     "httpx",
+    "kubernetes",
 ]
 
 [project.optional-dependencies]
