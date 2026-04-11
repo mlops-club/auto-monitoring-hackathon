@@ -39,7 +39,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gettext
 
       - name: Install helm-diff plugin
-        run: helm plugin install https://github.com/databus23/helm-diff || true
+        run: |
+          helm plugin install https://github.com/databus23/helm-diff || helm plugin update diff
+          helm diff version
 
       - name: AWS + EKS auth
         uses: ./.github/actions/aws-eks-auth
