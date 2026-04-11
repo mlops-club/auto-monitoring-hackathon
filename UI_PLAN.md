@@ -10,7 +10,7 @@
 | **1.2** | FastAPI `GET /api/labels` endpoint (K8s node labels, 60s cache) | **Done** | #13 |
 | **1.3** | RBAC ClusterRole/Binding for backend ServiceAccount | **Done** | #13 |
 | **1.4** | Deploy & verify relabel + labels endpoint | Partially done (endpoint verified locally; Alloy redeploy pending) | #13 |
-| **2** | FastAPI backend — Mimir query endpoints (`/api/nodes`, `/api/nodes/{node}/history`) | Not started | — |
+| **2** | FastAPI backend — Mimir query endpoints (`/api/nodes`, `/api/nodes/{node}/history`) | **Done** | #16 |
 | **3** | React UI — display real node-exporter metrics | Not started | — |
 | **4** | Mock DCGM exporter for GPU metrics | Not started | — |
 | **5** | Docker-compose local development stack | Not started | — |
