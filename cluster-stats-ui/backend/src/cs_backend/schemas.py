@@ -35,3 +35,8 @@ class ErrorResponse(BaseModel):
             ]
         },
     )
+
+
+class UiProbeResponse(BaseModel):
+    message: str = Field(..., description="Confirmation that the UI reached the backend")
+    request_path: str = Field(..., description="Path received by the backend")

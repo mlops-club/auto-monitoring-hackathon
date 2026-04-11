@@ -2,23 +2,35 @@ name: Cluster Stats UI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
     paths:
-      - "cluster-stats-ui/**"
-  push:
-    branches: [main]
-    paths:
-      - "cluster-stats-ui/**"
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-concurrency:
-  group: cluster-stats-ui-${{ github.ref }}
-  cancel-in-progress: true
+      - "cluster-stats-ui/frontend/**"
+      - "cluster-stats-ui/backend/**"
+      - "cluster-stats-ui/run"
+      - ".github/workflows/cluster-stats-ui.yml"
 
 jobs:
-  # ── Backend unit tests (in-process, no external deps) ─────────────
+  frontend-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cluster-stats-ui/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Build frontend
+        run: pnpm run build
+
   backend-unit-tests:
     runs-on: ubuntu-latest
     defaults:
@@ -35,7 +47,6 @@ jobs:
       - name: Run unit tests
         run: uv run pytest tests/unit_tests/ -v --cov=cs_backend --cov-report=term-missing
 
-  # ── Backend functional tests (against a live server) ──────────────
   backend-functional-tests:
     runs-on: ubuntu-latest
     defaults:
@@ -44,9 +55,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - uses: astral-sh/setup-uv@v4
 
-      - name: Install dependencies
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install frontend dependencies
+        working-directory: cluster-stats-ui/frontend
+        run: pnpm install
+
+      - name: Build frontend bundle
+        working-directory: cluster-stats-ui/frontend
+        run: pnpm run build
+
+      - name: Install backend dependencies
         run: uv sync --all-extras
 
       - name: Start server

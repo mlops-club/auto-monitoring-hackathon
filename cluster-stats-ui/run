@@ -1,0 +1,146 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FRONTEND_DIR="$ROOT_DIR/frontend"
+BACKEND_DIR="$ROOT_DIR/backend"
+FRONTEND_PORT="${FRONTEND_PORT:-5173}"
+BACKEND_PORT="${BACKEND_PORT:-3000}"
+
+usage() {
+  cat <<'EOF'
+Usage: ./run <command>
+
+Commands:
+  install:frontend       Install frontend dependencies with pnpm
+  install:backend        Sync backend dependencies with uv
+  build:frontend         Build the frontend into the backend static directory
+  build:frontend:watch   Rebuild the frontend on save into the backend static directory
+  serve:frontend         Run the Vite development server only
+  serve:backend          Run the backend only
+  serve:split            Run Vite and the backend together for split local development
+  serve:bundled          Build the frontend once and serve everything from the backend
+  serve:bundled-watch    Rebuild frontend assets on save and serve them from the backend
+  test:backend           Run the backend unit/static pytest suite
+  test:static            Run static serving backend tests
+EOF
+}
+
+install_frontend() {
+  cd "$FRONTEND_DIR"
+  pnpm install
+}
+
+install_backend() {
+  cd "$BACKEND_DIR"
+  uv sync --extra dev
+}
+
+run_backend() {
+  cd "$BACKEND_DIR"
+  uv run uvicorn cs_backend.main:create_app --factory --host 0.0.0.0 --port "$BACKEND_PORT" --reload
+}
+
+cleanup() {
+  local exit_code="$1"
+  shift || true
+
+  for pid in "$@"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
+
+  exit "$exit_code"
+}
+
+wait_for_any() {
+  while true; do
+    for pid in "$@"; do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        wait "$pid" 2>/dev/null || true
+        return
+      fi
+    done
+    sleep 1
+  done
+}
+
+case "${1:-}" in
+  install:frontend)
+    install_frontend
+    ;;
+  install:backend)
+    install_backend
+    ;;
+  build:frontend)
+    install_frontend
+    cd "$FRONTEND_DIR"
+    pnpm run build
+    ;;
+  build:frontend:watch)
+    install_frontend
+    cd "$FRONTEND_DIR"
+    pnpm run build:watch
+    ;;
+  serve:frontend)
+    install_frontend
+    cd "$FRONTEND_DIR"
+    pnpm run dev -- --port "$FRONTEND_PORT"
+    ;;
+  serve:backend)
+    install_backend
+    run_backend
+    ;;
+  serve:split)
+    install_frontend
+    install_backend
+    (
+      cd "$FRONTEND_DIR"
+      pnpm run dev -- --port "$FRONTEND_PORT"
+    ) &
+    frontend_pid="$!"
+    run_backend &
+    backend_pid="$!"
+    trap 'cleanup $? "$frontend_pid" "$backend_pid"' INT TERM EXIT
+    wait_for_any "$frontend_pid" "$backend_pid"
+    ;;
+  serve:bundled)
+    "$0" build:frontend
+    install_backend
+    run_backend
+    ;;
+  serve:bundled-watch)
+    install_frontend
+    install_backend
+    (
+      cd "$FRONTEND_DIR"
+      pnpm run build:watch
+    ) &
+    watcher_pid="$!"
+    run_backend &
+    backend_pid="$!"
+    trap 'cleanup $? "$watcher_pid" "$backend_pid"' INT TERM EXIT
+    wait_for_any "$watcher_pid" "$backend_pid"
+    ;;
+  test:backend)
+    install_backend
+    cd "$BACKEND_DIR"
+    uv run pytest tests/unit_tests/ -m "not slow"
+    ;;
+  test:static)
+    install_backend
+    cd "$BACKEND_DIR"
+    uv run pytest tests/unit_tests/test__static_serving.py
+    ;;
+  ""|-h|--help|help)
+    usage
+    ;;
+  *)
+    echo "Unknown command: $1" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

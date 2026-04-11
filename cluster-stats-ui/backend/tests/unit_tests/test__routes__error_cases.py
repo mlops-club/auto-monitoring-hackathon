@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 
 def test__get_nonexistent_route(client: TestClient):
-    response = client.get("/nonexistent")
+    response = client.get("/api/nonexistent")
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 

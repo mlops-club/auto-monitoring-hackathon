@@ -1,0 +1,143 @@
+.shell {
+  width: min(1100px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 3rem 0 4rem;
+}
+
+.hero-card,
+.placeholder-card,
+.status-card {
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 24px;
+  background: rgba(255, 252, 247, 0.84);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+}
+
+.hero-card {
+  padding: 2.1rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.hero-card h1,
+.placeholder-card h2 {
+  margin: 0;
+  color: #14213d;
+}
+
+.lede,
+.placeholder-card p,
+.status-card strong,
+.status-label,
+.nav-links a,
+.probe-button,
+.error-banner {
+  font-size: 1rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.75rem;
+  color: #c75c1b;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.status-card {
+  padding: 1rem 1.2rem;
+}
+
+.status-card strong {
+  display: block;
+  margin-top: 0.35rem;
+  line-height: 1.5;
+}
+
+.status-label {
+  color: #475569;
+}
+
+.action-bar {
+  margin: 1.5rem 0;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.nav-links {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.nav-links a {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 33, 61, 0.12);
+  color: #14213d;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.nav-links a:hover {
+  border-color: rgba(199, 92, 27, 0.4);
+}
+
+.probe-button {
+  border: none;
+  padding: 0.85rem 1.25rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #14213d, #395886);
+  color: #f8fafc;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.probe-button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.placeholder-card {
+  padding: 1.75rem 2rem;
+}
+
+.error-banner {
+  margin: 0 0 1rem;
+  color: #9f1239;
+  background: rgba(255, 228, 230, 0.9);
+  border: 1px solid rgba(190, 24, 93, 0.15);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+}
+
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    width: min(100vw - 1.25rem, 100%);
+    padding-top: 1.5rem;
+  }
+
+  .hero-card,
+  .placeholder-card {
+    padding: 1.25rem;
+  }
+
+  .action-bar {
+    align-items: stretch;
+  }
+
+  .probe-button {
+    width: 100%;
+  }
+}
