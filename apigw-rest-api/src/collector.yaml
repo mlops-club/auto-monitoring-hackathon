@@ -15,17 +15,17 @@ exporters:
     endpoint: "https://otlp.hack.subq-sandbox.com"
     compression: gzip
 
-  logging:
+  debug:
     verbosity: normal
 
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      exporters: [otlphttp, logging]
+      exporters: [otlphttp, debug]
     metrics:
       receivers: [otlp]
-      exporters: [otlphttp, logging]
+      exporters: [otlphttp, debug]
     logs:
       receivers: [otlp]
-      exporters: [otlphttp, logging]
+      exporters: [otlphttp, debug]

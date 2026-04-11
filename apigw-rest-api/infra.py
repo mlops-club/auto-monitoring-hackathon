@@ -142,7 +142,7 @@ class HelloApiStack(Stack):
                 # The OTel SDK sends to the ADOT collector on localhost
                 "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
                 # ADOT collector config (bundled in src/ via the Code asset)
-                "OPENTELEMETRY_COLLECTOR_CONFIG_FILE": "/var/task/collector.yaml",
+                "OPENTELEMETRY_COLLECTOR_CONFIG_URI": "/var/task/collector.yaml",
                 "OTEL_RESOURCE_ATTRIBUTES": f"service.name={SERVICE_NAME}",
             },
         )
