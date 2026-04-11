@@ -64,8 +64,8 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
 
 ### 1. Make loki, tempo, pyroscope, and mimir only accessible within the eks cluster
 
-1. [ ] These services are exposed on the public internet. Make them private so they are no longer exposed publicly.
-2. [ ] Validate that the services can be accessed via a portfoward using the `kubectl` CLI
+1. [x] These services are exposed on the public internet. Make them private so they are no longer exposed publicly.
+2. [x] Validate that the services can be accessed via a portfoward using the `kubectl` CLI
 
 ### 2. Full-stack FastAPI app
 

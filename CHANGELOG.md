@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-04-11 — Make monitoring backends cluster-internal only
+
+### Why
+
+Loki, Tempo, Pyroscope, and Mimir were exposed on the public internet via the
+shared ALB. These are backend storage services that should only be accessed by
+Grafana and Alloy within the EKS cluster — there is no reason for them to be
+publicly reachable.
+
+### What changed
+
+#### 1. Removed public Ingress resources (`infra/k8s/helm/ingress.yaml`)
+
+Deleted the four ALB Ingress resources for Mimir, Loki, Tempo, and Pyroscope.
+Only Grafana and Alloy OTLP ingresses remain on the internet-facing ALB. The
+underlying Kubernetes Services are ClusterIP (Helm defaults), so they remain
+reachable within the cluster at their usual addresses:
+
+- `loki.monitoring.svc.cluster.local:3100`
+- `tempo.monitoring.svc.cluster.local:3200`
+- `pyroscope.monitoring.svc.cluster.local:4040`
+- `mimir-gateway.monitoring.svc.cluster.local:80`
+
+#### 2. Updated deploy script output (`infra/k8s/helm/deploy-monitoring.sh`)
+
+Replaced the four public URL lines with `kubectl port-forward` commands showing
+how to access the backends locally for debugging.
+
+### How it was verified
+
+- Helm workflow dispatch deployed successfully from branch `stormy-composer`
+- `kubectl get ingress -n monitoring` shows only `grafana` and `alloy-otlp`
+- Grafana remains accessible at `https://grafana.hack.subq-sandbox.com`
+- DNS cleanup handled automatically by external-dns (`policy=sync`)
+
 ## 2026-04-11 — CI/CD for CDK and Helm Deployments
 
 ### Why
