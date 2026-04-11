@@ -1,5 +1,81 @@
 # Changelog
 
+## 2026-04-11 — Cluster Stats UI frontend scaffold and local run flows
+
+### Why
+
+The backend scaffold was in place, but the monitoring UI still had no frontend,
+no shared local run entrypoint, and no way to verify frontend/backend serving
+behavior together before the real mimir-backed features land.
+
+### What changed
+
+#### 1. Frontend app (`cluster-stats-ui/frontend/`)
+
+Added a Vite + React + TypeScript application following the requested pattern:
+
+- **Vite/React/TypeScript scaffold** — committed as a standalone frontend app
+  managed with `pnpm`.
+- **Split-mode development** — Vite serves the frontend directly and proxies
+  `/health`, `/openapi.json`, and `/api/*` requests to the backend.
+- **Bundled-mode development** — Vite builds into
+  `cluster-stats-ui/backend/src/cs_backend/static/` so FastAPI can serve the
+  frontend and SPA routes from one process.
+- **Placeholder UI shell** — includes route handling and a backend probe button
+  so frontend/backend integration can be exercised before real cluster data is
+  wired in.
+
+#### 2. Shared run script (`cluster-stats-ui/run`)
+
+Added a bash `run` entrypoint to manage local workflows without `poethepoet` or
+`just`:
+
+- **Install commands** — `install:frontend`, `install:backend`
+- **Build commands** — `build:frontend`, `build:frontend:watch`
+- **Serve commands** — `serve:frontend`, `serve:backend`, `serve:split`,
+  `serve:bundled`, `serve:bundled-watch`
+- **Test commands** — `test:backend`, `test:static`
+
+Python processes run via `uv`, matching the repo conventions.
+
+#### 3. Backend follow-up for frontend serving (`cluster-stats-ui/backend/`)
+
+Extended the merged backend scaffold so it can support the frontend workflow:
+
+- **Static asset serving** — serves the built frontend bundle from
+  `src/cs_backend/static/`
+- **SPA fallback** — returns `index.html` for client-side routes like
+  `/clusters/demo`
+- **UI probe endpoint** — `GET /api/ui-probe` emits backend logs and returns a
+  small JSON response for frontend verification
+- **Test fixture updates** — backend tests now mount temporary static assets so
+  serving behavior is covered in-process
+
+#### 4. Workflow expansion (`.github/workflows/cluster-stats-ui.yml`)
+
+Expanded the Cluster Stats UI workflow so PRs touching either the frontend or
+backend run the relevant checks:
+
+- **`frontend-build`** — installs `pnpm` deps and runs the frontend build
+- **`backend-unit-tests`** — runs backend unit tests
+- **`backend-functional-tests`** — builds the frontend bundle, starts the
+  backend, and runs backend functional tests against the live server
+
+### How it was verified
+
+- `./run install:frontend`
+- `./run install:backend`
+- `./run build:frontend`
+- `./run test:backend`
+- `./run test:static`
+- `pnpm run lint` in `cluster-stats-ui/frontend`
+- Verified `serve:frontend`, `serve:backend`, `serve:split`, `serve:bundled`,
+  `build:frontend:watch`, and `serve:bundled-watch`
+- Used headless Chromium to load the split-mode UI, click the probe button, and
+  observe the backend log emission
+- Edited frontend files while both watch modes were running and confirmed the
+  bundle/HMR updated correctly
+
 ## 2026-04-11 — Cluster Stats UI backend and CI workflow
 
 ### Why

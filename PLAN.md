@@ -80,20 +80,20 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
    6. [x] Uses pydantic models to ensure OpenAPI docs are correct
    7. [x] Uses proper HTTP verbs and nouns in all endpoints
 
-2. [ ] Create a frontend application in `cluster-stats-ui/frontend/`
-   1. [ ] Follow the pattern shown in [this repo](https://github.com/phitoduck/come-follow-me-app/tree/main/rs-frontend/src)
-      1. [ ] use Vite, TypeScript, React
-      2. [ ] have a `run` script that is used to bundle the backend and frontend, model the run script after [this one](https://raw.githubusercontent.com/mlops-club/cloud-course-project/refs/heads/main/run.sh?token=GHSAT0AAAAAADWR4ABULUA3QV72YK2PCCY22OZ5FIA)
-         1. [ ] Do NOT use `poethepoet` or `just`, simply use a `run` bash script
-         2. [ ] Put the `poethepoet` commands into the `run` script, use `uv` for all python processes
-         3. [ ] Have a few `serve:<placeholder>` commands that serve the app in a few ways
-            1. [ ] the frontend running separately from the backend using `pnpm run dev` or similar and backend running with `uv run`
-            2. [ ] frontend built via a watch process that rebuilds on save and is served out of the backend (so the two are served together from the backend). Just do the boilerplate `vite` frontend for now. Initialize this using the `vite` CLI
-   2. [ ] Verify all this by running the serving in both modes. 
-      1. [ ] Control a chrome browser to interact with the UI to verify that it comes up on both serves and causes the backend to emit logs
-      2. [ ] Edit frontend files and verify that the watchers rebundle it correctly for the `serve:<placeholder>` commands
-      3. [ ] Add some basic `pytest` tests that validate that files are served when a request is made to the serving endpoint
-      4. [ ] Create a new GitHub Actions workflow that executes these tests on PR open and pushed commits to an open PR branch; only run the tests when files related to the frontend/backend are changed
+2. [x] Create a frontend application in `cluster-stats-ui/frontend/`
+   1. [x] Follow the pattern shown in [this repo](https://github.com/phitoduck/come-follow-me-app/tree/main/rs-frontend/src)
+      1. [x] use Vite, TypeScript, React
+      2. [x] have a `run` script that is used to bundle the backend and frontend, model the run script after [this one](https://raw.githubusercontent.com/mlops-club/cloud-course-project/refs/heads/main/run.sh?token=GHSAT0AAAAAADWR4ABULUA3QV72YK2PCCY22OZ5FIA)
+         1. [x] Do NOT use `poethepoet` or `just`, simply use a `run` bash script
+         2. [x] Put the `poethepoet` commands into the `run` script, use `uv` for all python processes
+         3. [x] Have a few `serve:<placeholder>` commands that serve the app in a few ways
+            1. [x] the frontend running separately from the backend using `pnpm run dev` or similar and backend running with `uv run`
+            2. [x] frontend built via a watch process that rebuilds on save and is served out of the backend (so the two are served together from the backend). Just do the boilerplate `vite` frontend for now. Initialize this using the `vite` CLI
+   2. [x] Verify all this by running the serving in both modes. 
+      1. [x] Control a chrome browser to interact with the UI to verify that it comes up on both serves and causes the backend to emit logs
+      2. [x] Edit frontend files and verify that the watchers rebundle it correctly for the `serve:<placeholder>` commands
+      3. [x] Add some basic `pytest` tests that validate that files are served when a request is made to the serving endpoint
+      4. [x] Create a new GitHub Actions workflow that executes these tests on PR open and pushed commits to an open PR branch; only run the tests when files related to the frontend/backend are changed
 
 3. [ ] Convert the `docs/cluster-view.html` script to TypeScript/React and have it powered by queries to the FastAPI backend, which in turn query mimir metrics
    1. [ ] Have two local development modes: 
