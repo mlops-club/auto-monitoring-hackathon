@@ -31,6 +31,22 @@ def test__get_nodes__disks_grouped_by_device(client_with_mimir: TestClient):
     assert "nvme1n1" in devs
 
 
+def test__get_nodes__disk_size_bytes(client_with_mimir: TestClient):
+    nodes = client_with_mimir.get("/api/nodes").json()["nodes"]
+    node1 = next(n for n in nodes if n["id"] == "node-1")
+    nvme0 = next(d for d in node1["disks"] if d["dev"] == "nvme0n1")
+    assert nvme0["size_bytes"] == 107374182400  # 100 GiB
+    nvme1 = next(d for d in node1["disks"] if d["dev"] == "nvme1n1")
+    assert nvme1["size_bytes"] == 214748364800  # 200 GiB
+
+
+def test__get_nodes__disk_size_bytes_node2(client_with_mimir: TestClient):
+    nodes = client_with_mimir.get("/api/nodes").json()["nodes"]
+    node2 = next(n for n in nodes if n["id"] == "node-2")
+    nvme0 = next(d for d in node2["disks"] if d["dev"] == "nvme0n1")
+    assert nvme0["size_bytes"] == 1099511627776  # 1 TiB
+
+
 def test__get_nodes__nics_present(client_with_mimir: TestClient):
     nodes = client_with_mimir.get("/api/nodes").json()["nodes"]
     node1 = next(n for n in nodes if n["id"] == "node-1")

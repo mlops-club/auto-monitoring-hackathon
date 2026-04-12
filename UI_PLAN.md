@@ -4,14 +4,24 @@
 
 | Phase | Description | Status | PR |
 |-------|-------------|--------|-----|
-| **0** | Verify existing node-exporter metrics reach Mimir | Not started | — |
+| **0** | Verify existing node-exporter metrics reach Mimir | Not started — data flows (proven by live UI), but formal checklist not run | — |
 | **1** | K8s labels via API + metric→node mapping in Alloy | **Done** | [#13](https://github.com/mlops-club/auto-monitoring-hackathon/pull/13) |
 | **1.1** | Add `node` relabel rule to Alloy (node_exporter + cAdvisor) | **Done** | #13 |
 | **1.2** | FastAPI `GET /api/labels` endpoint (K8s node labels, 60s cache) | **Done** | #13 |
 | **1.3** | RBAC ClusterRole/Binding for backend ServiceAccount | **Done** | #13 |
 | **1.4** | Deploy & verify relabel + labels endpoint | Partially done (endpoint verified locally; Alloy redeploy pending) | #13 |
 | **2** | FastAPI backend — Mimir query endpoints (`/api/nodes`, `/api/nodes/{node}/history`) | **Done** | #16 |
-| **3** | React UI — display real node-exporter metrics | Not started | — |
+| **3** | React UI — display real node-exporter metrics | **Done** (see §3.1–3.8) | — |
+| **3.1–3.7** | Components, API client, types, CSS, FilterBar + group-by, wired to real backend | **Done** | — |
+| **3.8** | MetricsModal — click square to open time-series chart (`GET /api/nodes/{node}/history`) | Not started | — |
+| **3.9** | Auto-refresh / polling — periodically re-fetch `/api/nodes` to show live-updating metrics | Not started | — |
+| **3.10** | Populate `cpu.cores` and `cpu.model` — query `node_uname_info` or similar from Mimir | Not started | — |
+| **3.11** | Disk: redesign tabs as Devices (block devices w/ IOPS+Tput) and Partitions (filesystems w/ usage+mount path) | Not started | — |
+| **3.11a** | Backend: add `mountpoint` label to `disk_free`/`disk_size` PromQL queries, expose in `DiskMetrics` | Not started | — |
+| **3.11b** | Backend: split disk response into `devices[]` (IOPS/Tput) and `partitions[]` (free/size/mount) | Not started | — |
+| **3.11c** | Frontend: replace Space/IOPS/Tput tabs with Devices/Partitions tabs | Not started | — |
+| **3.11d** | Feasibility: check if `node_filesystem_*` `mountpoint` label reliably reports mount paths on EKS nodes | Not started | — |
+| **3.12** | Network: handle missing `speed_bytes` on `eth*` (AWS doesn't expose link speed) | Not started | — |
 | **4** | Mock DCGM exporter for GPU metrics | Not started | — |
 | **5** | Docker-compose local development stack | Not started | — |
 | **6** | Playwright end-to-end tests | Not started | — |
@@ -272,58 +282,343 @@ curl -s 'http://localhost:8000/api/nodes/NODE_INSTANCE/history?metric=cpu&start=
 
 ## Phase 3: React UI — display real node-exporter metrics
 
-**Goal**: Port the HTML dashboard to React, wired to the FastAPI backend.
+**Goal**: Port the HTML dashboard (`docs/cluster-view.html`) to React, wired to the FastAPI backend's `/api/nodes`, `/api/nodes/{node}/history`, and `/api/labels` endpoints. All node-exporter metrics should display live data; GPU/RDMA/PCIe columns are stubbed.
 
-### 3.1 Scope for this phase (node-exporter only)
+> **Dependency note**: Phase 2 (FastAPI Mimir query endpoints) is being built on a separate branch. Phase 3 work should be structured so it can be developed in parallel and reconciled afterward. Strategy: define a **TypeScript API client layer** with explicit types for the `/api/nodes` and `/api/nodes/{node}/history` response shapes, and use **mock data** in dev/test until Phase 2 lands. The reconciliation merge will wire the real endpoints through the same typed client.
 
-Implement the following columns from the original HTML:
-- **Node** column: hostname, IP, health badge, K8s labels on hover
-- **Disks** column: Space / IOPS / Tput tabs — one square per `device`
-- **Network** column: BW / Drop tabs — one square per NIC (non-virtual)
-- **CPU / RAM** column: CPU / Swap tabs — CPU utilization square + RAM gauge
+---
 
-**Stub out** (show "No data" or grayed-out squares):
+### 3.1 Scope (node-exporter metrics only)
+
+#### Implement (live data from backend)
+
+| Column | Tabs | Visual | Data source |
+|--------|------|--------|-------------|
+| **Node** | — | Hostname pill, IP, health badge, K8s labels tooltip | `GET /api/nodes` → `id`, `ip`, `health`, `labels` |
+| **Disks** | Space / IOPS / Tput | One battery square per `device` | `GET /api/nodes` → `disks[]` |
+| **Network** | BW / Drops | One battery square per NIC | `GET /api/nodes` → `nics[]` |
+| **CPU / RAM** | CPU / Swap | CPU heat square + RAM gauge | `GET /api/nodes` → `cpu`, `ram` |
+
+#### Stub out (show "No data" / grayed squares)
+
 - GPU column
 - RDMA/IB column
 - PCIe column
 
-### 3.2 Component hierarchy
+---
+
+### 3.2 API contract & TypeScript types
+
+Define these in `frontend/src/api/types.ts`. They mirror the backend response schemas from Phase 2 (§2.5) and the DATA shape in `docs/cluster-view.html`:
+
+```typescript
+// --- GET /api/nodes response ---
+export interface NodesResponse {
+  nodes: NodeSummary[];
+}
+
+export interface NodeSummary {
+  id: string;           // K8s node name
+  ip: string;           // internal IP
+  health: "ok" | "warn" | "crit";
+  labels: Record<string, string>;
+  cpu: { util: number; cores: number; model: string };
+  ram: { used: number; total: string; usedGb: number; swap: number; psi: number };
+  disks: DiskInfo[];
+  nics: NicInfo[];
+  // stubbed — null until Phase 4
+  gpus: null;
+  rdma: null;
+  pcie: null;
+}
+
+export interface DiskInfo {
+  dev: string;
+  free: number;         // percent
+  iops: number;
+  maxIops: number;
+  tput: number;         // GB/s
+  maxTput: number;
+  totalTB: number;
+}
+
+export interface NicInfo {
+  dev: string;
+  bw: number;           // percent
+  drops: number;
+  tx: number;           // Gb/s
+  rx: number;
+}
+
+// --- GET /api/nodes/{node}/history response ---
+export interface NodeHistoryResponse {
+  metric: string;
+  data: [number, number][];  // [timestamp_epoch_s, value]
+}
+
+// --- GET /api/labels response (already exists) ---
+export interface NodeLabelsResponse {
+  nodes: Record<string, Record<string, string>>;
+}
+```
+
+### 3.3 API client layer with mock support
+
+Create `frontend/src/api/client.ts`:
+
+```typescript
+import type { NodesResponse, NodeHistoryResponse, NodeLabelsResponse } from "./types";
+
+const BASE = "";  // same-origin, proxied by Vite in dev
+
+export async function fetchNodes(): Promise<NodesResponse> { ... }
+export async function fetchNodeHistory(node: string, metric: string, start: string, end: string): Promise<NodeHistoryResponse> { ... }
+export async function fetchLabels(): Promise<NodeLabelsResponse> { ... }
+```
+
+Create `frontend/src/api/mock-data.ts` — returns canned `NodesResponse` / `NodeLabelsResponse` shaped like the DATA constant in `docs/cluster-view.html` but limited to node-exporter fields (GPU/RDMA/PCIe are `null`). This is used by:
+1. **Tests** (Vitest) — imported directly, no network needed
+2. **Dev without backend** — toggled via `VITE_USE_MOCKS=true` env var
+
+---
+
+### 3.4 Component hierarchy
 
 ```
 <App>
-  <ClusterDashboard>
-    <DashboardHeader />
-    <FilterBar />           ← powered by GET /api/labels
-    <ClusterTable>
-      <NodeRow>             ← one per node from GET /api/nodes
-        <NodeCell />
-        <DiskColumn />
-        <NetworkColumn />
-        <CpuRamColumn />
-        <GpuColumn />       ← stubbed
-        <RdmaColumn />      ← stubbed
-        <PcieColumn />      ← stubbed
-      </NodeRow>
-    </ClusterTable>
-    <MetricsModal />        ← GET /api/nodes/{id}/history
-  </ClusterDashboard>
+  <BrowserRouter>
+    <Routes>
+      <Route path="/" element={<ClusterDashboard />} />
+      <Route path="/clusters/:clusterName" element={<ClusterDashboard />} />
+    </Routes>
+  </BrowserRouter>
 </App>
+
+<ClusterDashboard>                    ← top-level page, owns data fetching
+  <DashboardHeader />                 ← title, legend, node count
+  <FilterBar />                       ← search input + label chips, powered by GET /api/labels
+  <ClusterTable>                      ← sticky header with column tabs (Disk: Space/IOPS/Tput, etc.)
+    <NodeRow node={node} />           ← one per node
+      <NodeCell />                    ← health bar + hostname pill + IP + labels tooltip
+      <DiskColumn disks={disks} activeTab={tab} />
+      <NetworkColumn nics={nics} activeTab={tab} />
+      <CpuRamColumn cpu={cpu} ram={ram} activeTab={tab} />
+      <GpuColumn gpus={null} />       ← stubbed "No data"
+      <RdmaColumn rdma={null} />      ← stubbed "No data"
+      <PcieColumn pcie={null} />      ← stubbed "No data"
+  </ClusterTable>
+  <MetricsModal />                    ← opens on square click, fetches GET /api/nodes/{id}/history
+</ClusterDashboard>
 ```
 
-### 3.3 Verify UI
+#### Shared primitives (reusable across columns)
 
-1. Start backend + frontend in dev mode (separate processes)
-2. Open browser, confirm:
-   - [ ] Table renders with one row per node
-   - [ ] Disk squares fill proportionally to usage
-   - [ ] Network BW squares fill proportionally
-   - [ ] CPU square fills proportionally
-   - [ ] RAM gauge shows correct percentage
-   - [ ] Tab switching works (Disk: Space → IOPS → Tput)
-   - [ ] Filter dropdown shows K8s labels and filters rows
-   - [ ] Hovering a square shows tooltip with actual values
-   - [ ] GPU/RDMA/PCIe columns show "No data" state
-   - [ ] Metrics modal opens and shows time-series charts for available metrics
+| Component | Purpose |
+|-----------|---------|
+| `<HeatSquare value={0-100} tooltip={string} thresholds={[40,70]} />` | Battery-fill square with green/yellow/red coloring |
+| `<RamGauge percent={number} label={string} />` | Vertical gauge bar for RAM |
+| `<TabBar tabs={string[]} active={string} onChange={fn} />` | Column tab switcher |
+| `<Tooltip content={string} />` | Hover tooltip with formatted metric values |
+| `<NoDataSquare />` | Grayed-out placeholder for stubbed columns |
+
+---
+
+### 3.5 Implementation steps
+
+| Step | Description | Files touched | Depends on Phase 2? |
+|------|-------------|---------------|---------------------|
+| **3.5.1** | Add Vitest + React Testing Library to frontend | `package.json`, `vitest.config.ts`, `tsconfig.json` | No |
+| **3.5.2** | Define TypeScript types (`api/types.ts`) | new file | No |
+| **3.5.3** | Create API client + mock data module | `api/client.ts`, `api/mock-data.ts` | No (mocks only) |
+| **3.5.4** | Build shared primitives: `HeatSquare`, `RamGauge`, `TabBar`, `Tooltip`, `NoDataSquare` | `components/primitives/` | No |
+| **3.5.5** | Build column components: `NodeCell`, `DiskColumn`, `NetworkColumn`, `CpuRamColumn`, stubbed `GpuColumn`, `RdmaColumn`, `PcieColumn` | `components/columns/` | No |
+| **3.5.6** | Build `NodeRow`, `ClusterTable` (sticky header + tab state), `FilterBar`, `DashboardHeader` | `components/` | No |
+| **3.5.7** | Build `ClusterDashboard` page — data fetching, polling interval, loading/error states | `pages/ClusterDashboard.tsx` | **Soft** — works with mocks now, real endpoints after merge |
+| **3.5.8** | Build `MetricsModal` — time-series chart (use a lightweight lib, e.g. `recharts` or raw `<canvas>`) | `components/MetricsModal.tsx` | **Soft** — same pattern |
+| **3.5.9** | Port CSS from `docs/cluster-view.html` — match the exact visual design | `*.css` or CSS modules | No |
+| **3.5.10** | Write full test suite (see §3.7) | `__tests__/` | No |
+| **3.5.11** | Wire to real backend (post-merge with Phase 2 branch) | `api/client.ts` — remove mock fallback | **Yes** |
+
+---
+
+### 3.6 Reconciliation with Phase 2 branch
+
+Phase 2 introduces:
+- `GET /api/nodes` — returns `NodesResponse`
+- `GET /api/nodes/{node}/history` — returns `NodeHistoryResponse`
+- Mimir client (`cs_backend/mimir.py`)
+
+**Reconciliation strategy**:
+1. Phase 3 defines the TypeScript types (§3.2) as the contract. Phase 2 must produce responses matching these types.
+2. Phase 3 uses `api/client.ts` which abstracts `fetch()` calls. In dev/test it can use mocks; after merge it hits real endpoints.
+3. After merging Phase 2 into this branch:
+   - Verify `GET /api/nodes` response matches `NodesResponse` type — run `tsc --noEmit`
+   - Run the full test suite (§3.7) against the real backend using `CS_BACKEND_BASE_URL`
+   - If the Phase 2 response shape differs from the types defined here, update the types and fix any breaking tests
+
+**Merge conflict risk**: Low. Phase 3 only touches `frontend/` and adds no backend code. Phase 2 only touches `backend/`. The only shared surface is `routes.py` (Phase 2 adds new routes) and `schemas.py` (Phase 2 adds new Pydantic models). No overlapping edits expected.
+
+---
+
+### 3.7 Test plan — fully isolated, CI-ready
+
+All tests run **without network access** to Mimir, K8s, or a running backend. The frontend test suite uses Vitest + React Testing Library with mock data injected at the API client boundary.
+
+#### 3.7.1 Test infrastructure setup
+
+**New dev dependencies** (add to `frontend/package.json`):
+```json
+{
+  "devDependencies": {
+    "@testing-library/react": "^16.x",
+    "@testing-library/jest-dom": "^6.x",
+    "@testing-library/user-event": "^14.x",
+    "vitest": "^3.x",
+    "jsdom": "^26.x",
+    "@vitest/coverage-v8": "^3.x"
+  }
+}
+```
+
+**`frontend/vitest.config.ts`**:
+```typescript
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: ["./src/test-setup.ts"],
+    css: true,
+    coverage: { provider: "v8", reporter: ["text", "lcov"] },
+  },
+});
+```
+
+**`frontend/src/test-setup.ts`**:
+```typescript
+import "@testing-library/jest-dom/vitest";
+```
+
+**Mock strategy**: Every test file imports mock data from `api/mock-data.ts` and stubs the API client module using `vi.mock("../api/client")`. No HTTP requests are made. No backend, Mimir, or K8s access needed.
+
+#### 3.7.2 Test suite — component tests
+
+| # | Test file | What it verifies | Mock inputs |
+|---|-----------|-----------------|-------------|
+| 1 | `HeatSquare.test.tsx` | Renders with correct fill height (%) and color class (green/yellow/red) based on value and thresholds | `value=25` → green, `value=55` → yellow, `value=85` → red |
+| 2 | `HeatSquare.test.tsx` | Shows tooltip on hover with formatted content | Mouse enter → tooltip visible |
+| 3 | `RamGauge.test.tsx` | Renders gauge with correct height and label | `percent=45, label="920 / 2048 GB"` |
+| 4 | `TabBar.test.tsx` | Renders tabs, highlights active tab, calls onChange on click | `tabs=["Space","IOPS","Tput"], active="Space"` |
+| 5 | `NoDataSquare.test.tsx` | Renders grayed-out square with "No data" accessible label | — |
+| 6 | `NodeCell.test.tsx` | Displays hostname, IP, health badge color | `id="node-1", ip="10.0.0.1", health="ok"` |
+| 7 | `NodeCell.test.tsx` | Shows K8s labels in tooltip on hover | `labels={"topology.kubernetes.io/zone": "us-west-2a"}` |
+| 8 | `DiskColumn.test.tsx` | Renders one square per disk device | 2 disks → 2 squares |
+| 9 | `DiskColumn.test.tsx` | Square fill reflects disk usage (100 - free) | `free=78` → fill height ~22% |
+| 10 | `DiskColumn.test.tsx` | Tab switch changes displayed metric (Space → IOPS → Tput) | Click IOPS tab → squares show IOPS values |
+| 11 | `NetworkColumn.test.tsx` | Renders one square per NIC | 2 NICs → 2 squares |
+| 12 | `NetworkColumn.test.tsx` | BW tab: fill reflects bandwidth % | `bw=50` → 50% fill |
+| 13 | `NetworkColumn.test.tsx` | Drops tab: color reflects drop severity | `drops=0` → green, `drops=1247` → red |
+| 14 | `CpuRamColumn.test.tsx` | CPU tab: heat square fill matches `cpu.util` | `util=35` → 35% fill |
+| 15 | `CpuRamColumn.test.tsx` | CPU tab: shows core count label | `cores=128` → "128c" text |
+| 16 | `CpuRamColumn.test.tsx` | Swap tab: shows swap gauge and PSI value | `swap=12, psi=14.8` |
+| 17 | `GpuColumn.test.tsx` | Renders "No data" stub state when `gpus=null` | `gpus=null` |
+| 18 | `RdmaColumn.test.tsx` | Renders "No data" stub state when `rdma=null` | `rdma=null` |
+| 19 | `PcieColumn.test.tsx` | Renders "No data" stub state when `pcie=null` | `pcie=null` |
+
+#### 3.7.3 Test suite — integration tests (page-level)
+
+| # | Test file | What it verifies | Mock setup |
+|---|-----------|-----------------|------------|
+| 20 | `ClusterDashboard.test.tsx` | Renders one `<NodeRow>` per node in mock data | Mock `fetchNodes()` → 3 nodes → 3 rows |
+| 21 | `ClusterDashboard.test.tsx` | Shows loading spinner before data arrives | Mock `fetchNodes()` with delayed resolve |
+| 22 | `ClusterDashboard.test.tsx` | Shows error banner when fetch fails | Mock `fetchNodes()` → reject |
+| 23 | `ClusterDashboard.test.tsx` | Disk tab switching is global (all rows update) | Click "IOPS" in header → all DiskColumns reflect IOPS |
+| 24 | `ClusterDashboard.test.tsx` | Network tab switching is global | Click "Drops" in header → all NetworkColumns reflect drops |
+| 25 | `FilterBar.test.tsx` | Renders label key suggestions from mock `/api/labels` | Mock `fetchLabels()` → label keys appear in dropdown |
+| 26 | `FilterBar.test.tsx` | Selecting a filter chip hides non-matching nodes | Filter `zone=us-west-2a` → only matching nodes visible |
+| 27 | `FilterBar.test.tsx` | Removing a filter chip restores hidden nodes | Remove chip → all nodes visible again |
+| 28 | `FilterBar.test.tsx` | Search input filters suggestions as user types | Type "zone" → only zone-related suggestions shown |
+| 29 | `MetricsModal.test.tsx` | Modal opens when a square is clicked | Click square → modal renders with node name in title |
+| 30 | `MetricsModal.test.tsx` | Modal fetches history for the clicked metric | Click CPU square → `fetchNodeHistory(node, "cpu", ...)` called |
+| 31 | `MetricsModal.test.tsx` | Modal closes on backdrop click or Escape | Click backdrop → modal unmounts |
+| 32 | `MetricsModal.test.tsx` | Renders a chart/sparkline with time-series data | Mock history response → `<canvas>` or SVG path rendered |
+
+#### 3.7.4 Test suite — data flow & edge cases
+
+| # | Test file | What it verifies | Mock setup |
+|---|-----------|-----------------|------------|
+| 33 | `ClusterDashboard.test.tsx` | Handles empty node list gracefully | Mock `fetchNodes()` → `{ nodes: [] }` → "No nodes" message |
+| 34 | `ClusterDashboard.test.tsx` | Handles node with 0 disks (no crash) | Node with `disks: []` → DiskColumn renders empty |
+| 35 | `ClusterDashboard.test.tsx` | Handles node with 0 NICs (no crash) | Node with `nics: []` → NetworkColumn renders empty |
+| 36 | `DiskColumn.test.tsx` | Boundary: 0% free disk → 100% filled, red | `free=0` → full square, red color |
+| 37 | `DiskColumn.test.tsx` | Boundary: 100% free disk → 0% filled, green | `free=100` → empty square, green |
+| 38 | `CpuRamColumn.test.tsx` | Boundary: 0% CPU util → empty square | `util=0` |
+| 39 | `CpuRamColumn.test.tsx` | Boundary: 100% CPU util → full square, red | `util=100` |
+| 40 | `NodeCell.test.tsx` | Health badge: "ok" → green, "warn" → yellow, "crit" → red | All 3 states |
+
+#### 3.7.5 Running tests in CI
+
+Add to `frontend/package.json` scripts:
+```json
+{
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  }
+}
+```
+
+**GitHub Actions job** (add to existing CI workflow):
+```yaml
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cluster-stats-ui/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: cluster-stats-ui/frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test:coverage
+      - run: pnpm run lint
+      - run: pnpm run build
+```
+
+**Isolation guarantees**:
+- `jsdom` environment — no real browser needed
+- All API calls mocked via `vi.mock()` — no network access
+- No Docker, Mimir, K8s, or backend process required
+- CSS is included (`css: true` in vitest config) so class-based assertions work
+- Runs in ~10s on CI
+
+---
+
+### 3.8 Manual verification checklist
+
+After implementation, start backend + frontend in dev mode and verify in browser:
+
+- [ ] Table renders with one row per node
+- [ ] Disk squares fill proportionally to usage
+- [ ] Network BW squares fill proportionally
+- [ ] CPU square fills proportionally
+- [ ] RAM gauge shows correct percentage
+- [ ] Tab switching works (Disk: Space → IOPS → Tput; Net: BW → Drops; CPU/RAM: CPU → Swap)
+- [ ] Filter dropdown shows K8s labels and filters rows
+- [ ] Hovering a square shows tooltip with actual values
+- [ ] GPU/RDMA/PCIe columns show "No data" state
+- [ ] Metrics modal opens and shows time-series charts for available metrics
+- [ ] Page handles backend being down (error state, not blank screen)
 
 ---
 

@@ -35,6 +35,7 @@ _INSTANT_QUERIES = {
     "ram_total": "avg by (instance) (node_memory_MemTotal_bytes)",
     "swap_used_pct": "avg by (instance) (100 * (1 - node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes))",
     "disk_free": 'avg by (instance, device) (100 * node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})',
+    "disk_size": 'avg by (instance, device) (node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})',
     "disk_iops": "sum by (instance, device) (rate(node_disk_reads_completed_total[5m]) + rate(node_disk_writes_completed_total[5m]))",
     "disk_tput": "sum by (instance, device) (rate(node_disk_read_bytes_total[5m]) + rate(node_disk_written_bytes_total[5m]))",
     "net_bw": 'sum by (instance, device) (rate(node_network_receive_bytes_total{device!~"lo|veth.*|docker.*|br-.*"}[5m]) + rate(node_network_transmit_bytes_total{device!~"lo|veth.*|docker.*|br-.*"}[5m]))',
@@ -175,11 +176,18 @@ async def get_nodes(mimir: MimirClient = Depends(_get_mimir)) -> NodesResponse: 
         ram_total = _get_scalar("ram_total", inst)
 
         disk_free = _get_by_device("disk_free", inst)
+        disk_size = _get_by_device("disk_size", inst)
         disk_iops = _get_by_device("disk_iops", inst)
         disk_tput = _get_by_device("disk_tput", inst)
-        all_devs = set(disk_free) | set(disk_iops) | set(disk_tput)
+        all_devs = set(disk_free) | set(disk_size) | set(disk_iops) | set(disk_tput)
         disks = [
-            DiskMetrics(dev=d, free=disk_free.get(d), iops=disk_iops.get(d), tput_bytes=disk_tput.get(d))
+            DiskMetrics(
+                dev=d,
+                free=disk_free.get(d),
+                size_bytes=int(disk_size[d]) if disk_size.get(d) is not None else None,
+                iops=disk_iops.get(d),
+                tput_bytes=disk_tput.get(d),
+            )
             for d in sorted(all_devs)
         ]
 
