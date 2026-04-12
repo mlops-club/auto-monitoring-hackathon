@@ -32,6 +32,7 @@ export interface RamMetrics {
 export interface DiskMetrics {
   dev: string;
   free: number | null;
+  size_bytes: number | null;
   iops: number | null;
   tput_bytes: number | null;
 }

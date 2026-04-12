@@ -4,7 +4,7 @@ import { DiskColumn } from "../components/columns/DiskColumn";
 import type { DiskMetrics } from "../api/types";
 
 const disk = (overrides: Partial<DiskMetrics> = {}): DiskMetrics => ({
-  dev: "nvme0", free: 50, iops: 200, tput_bytes: 100000000,
+  dev: "nvme0", free: 50, size_bytes: 107374182400, iops: 200, tput_bytes: 100000000,
   ...overrides,
 });
 

@@ -66,6 +66,18 @@ DISK_FREE = {
     },
 }
 
+DISK_SIZE = {
+    "status": "success",
+    "data": {
+        "resultType": "vector",
+        "result": [
+            {"metric": {"instance": "10.0.0.1:9100", "device": "nvme0n1"}, "value": [1712345678.0, "107374182400"]},  # 100 GiB
+            {"metric": {"instance": "10.0.0.1:9100", "device": "nvme1n1"}, "value": [1712345678.0, "214748364800"]},  # 200 GiB
+            {"metric": {"instance": "10.0.0.2:9100", "device": "nvme0n1"}, "value": [1712345678.0, "1099511627776"]},  # 1 TiB
+        ],
+    },
+}
+
 DISK_IOPS = {
     "status": "success",
     "data": {
@@ -130,6 +142,7 @@ ALL_INSTANT_RESPONSES = [
     RAM_TOTAL,
     SWAP_USED_PCT,
     DISK_FREE,
+    DISK_SIZE,
     DISK_IOPS,
     DISK_TPUT,
     NET_BW,

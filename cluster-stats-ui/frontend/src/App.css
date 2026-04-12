@@ -193,7 +193,6 @@ body {
 .sq-batt {
   background: #f3f4f6;
   border: 0.7px solid #d1d5db;
-  overflow: hidden;
   display: inline-block;
 }
 .sq-batt-fill {
@@ -202,6 +201,7 @@ body {
   left: 0;
   right: 0;
   border-radius: 0 0 2px 2px;
+  max-height: 100%;
 }
 .sq-batt-fill.green  { background: rgba(34,197,94,0.55); }
 .sq-batt-fill.yellow { background: rgba(245,158,11,0.50); }
@@ -222,13 +222,37 @@ body {
   transform: translateX(-50%);
   background: #1f2937;
   color: #f9fafb;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-radius: 6px;
-  font-size: 9px;
-  white-space: pre-line;
+  font-size: 10px;
+  white-space: nowrap;
   z-index: 100;
   pointer-events: none;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  min-width: 140px;
+}
+.sq-tooltip .tt-title {
+  font-weight: 700;
+  font-size: 10px;
+  color: #fff;
+  margin-bottom: 3px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+.sq-tooltip .tt-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  line-height: 1.6;
+}
+.sq-tooltip .tt-label {
+  color: #94a3b8;
+}
+.sq-tooltip .tt-val {
+  color: #f1f5f9;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 9.5px;
 }
 
 /* ---- RAM gauge ---- */

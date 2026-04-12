@@ -58,6 +58,7 @@ class RamMetrics(BaseModel):
 class DiskMetrics(BaseModel):
     dev: str
     free: float | None = None
+    size_bytes: int | None = None
     iops: float | None = None
     tput_bytes: float | None = None
 

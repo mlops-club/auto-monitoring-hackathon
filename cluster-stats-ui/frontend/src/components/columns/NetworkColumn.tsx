@@ -6,20 +6,31 @@ interface Props {
   activeTab: "BW" | "Drops";
 }
 
+function isPhysicalNic(dev: string): boolean {
+  if (dev === "lo") return false;
+  if (dev.startsWith("eni")) return false;
+  if (dev.startsWith("veth")) return false;
+  if (dev.startsWith("docker")) return false;
+  if (dev.startsWith("br-")) return false;
+  if (dev.startsWith("cali")) return false;
+  return true;
+}
+
+function fmtRate(bytesPerSec: number | null): string {
+  if (bytesPerSec == null) return "—";
+  const bps = bytesPerSec * 8;
+  if (bps >= 1e9) return `${(bps / 1e9).toFixed(2)} Gbps`;
+  if (bps >= 1e6) return `${(bps / 1e6).toFixed(1)} Mbps`;
+  if (bps >= 1e3) return `${(bps / 1e3).toFixed(0)} Kbps`;
+  return `${bps.toFixed(0)} bps`;
+}
+
 function bwPercent(nic: NicMetrics): number {
   if (nic.bw_bytes == null) return 0;
   if (nic.speed_bytes != null && nic.speed_bytes > 0) {
     return (nic.bw_bytes / nic.speed_bytes) * 100;
   }
-  // No link speed available — use 1 Gbps as reference
-  return Math.min((nic.bw_bytes / 125000000) * 100, 100);
-}
-
-function fmtBytes(b: number | null): string {
-  if (b == null) return "—";
-  if (b >= 1e9) return `${(b / 1e9).toFixed(1)} Gb/s`;
-  if (b >= 1e6) return `${(b / 1e6).toFixed(1)} Mb/s`;
-  return `${(b / 1e3).toFixed(1)} Kb/s`;
+  return Math.min((nic.bw_bytes / 1250000000) * 100, 100);
 }
 
 function dropSeverity(drops: number | null): number {
@@ -30,27 +41,41 @@ function dropSeverity(drops: number | null): number {
 }
 
 export function NetworkColumn({ nics, activeTab }: Props) {
+  const visible = nics.filter((n) => isPhysicalNic(n.dev));
+
   return (
     <td>
       <div className="sq-row" data-testid="network-column">
-        {nics.map((n) => {
+        {visible.map((n) => {
+          const pct = bwPercent(n);
           switch (activeTab) {
-            case "BW": {
-              const pct = bwPercent(n);
+            case "BW":
               return (
                 <HeatSquare
                   key={n.dev}
                   value={pct}
-                  tooltip={`${n.dev}\nBW: ${pct.toFixed(0)}%\nRate: ${fmtBytes(n.bw_bytes)}\nSpeed: ${fmtBytes(n.speed_bytes)}`}
+                  tooltip={{
+                    title: n.dev,
+                    rows: [
+                      { label: "BW", value: `${fmtRate(n.bw_bytes)} (${pct.toFixed(1)}%)` },
+                      { label: "Link", value: fmtRate(n.speed_bytes) },
+                      { label: "Drops", value: `${n.drops?.toFixed(1) ?? "—"}/s` },
+                    ],
+                  }}
                 />
               );
-            }
             case "Drops":
               return (
                 <HeatSquare
                   key={n.dev}
                   value={dropSeverity(n.drops)}
-                  tooltip={`${n.dev}\nDrops: ${n.drops?.toFixed(1) ?? "—"}/s`}
+                  tooltip={{
+                    title: n.dev,
+                    rows: [
+                      { label: "Drops", value: `${n.drops?.toFixed(1) ?? "—"}/s` },
+                      { label: "BW", value: fmtRate(n.bw_bytes) },
+                    ],
+                  }}
                   thresholds={[25, 65]}
                 />
               );

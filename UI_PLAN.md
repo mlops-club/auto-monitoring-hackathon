@@ -4,14 +4,24 @@
 
 | Phase | Description | Status | PR |
 |-------|-------------|--------|-----|
-| **0** | Verify existing node-exporter metrics reach Mimir | Not started | — |
+| **0** | Verify existing node-exporter metrics reach Mimir | Not started — data flows (proven by live UI), but formal checklist not run | — |
 | **1** | K8s labels via API + metric→node mapping in Alloy | **Done** | [#13](https://github.com/mlops-club/auto-monitoring-hackathon/pull/13) |
 | **1.1** | Add `node` relabel rule to Alloy (node_exporter + cAdvisor) | **Done** | #13 |
 | **1.2** | FastAPI `GET /api/labels` endpoint (K8s node labels, 60s cache) | **Done** | #13 |
 | **1.3** | RBAC ClusterRole/Binding for backend ServiceAccount | **Done** | #13 |
 | **1.4** | Deploy & verify relabel + labels endpoint | Partially done (endpoint verified locally; Alloy redeploy pending) | #13 |
 | **2** | FastAPI backend — Mimir query endpoints (`/api/nodes`, `/api/nodes/{node}/history`) | **Done** | #16 |
-| **3** | React UI — display real node-exporter metrics | **Planned** (see §3.1–3.8) | — |
+| **3** | React UI — display real node-exporter metrics | **Done** (see §3.1–3.8) | — |
+| **3.1–3.7** | Components, API client, types, CSS, FilterBar + group-by, wired to real backend | **Done** | — |
+| **3.8** | MetricsModal — click square to open time-series chart (`GET /api/nodes/{node}/history`) | Not started | — |
+| **3.9** | Auto-refresh / polling — periodically re-fetch `/api/nodes` to show live-updating metrics | Not started | — |
+| **3.10** | Populate `cpu.cores` and `cpu.model` — query `node_uname_info` or similar from Mimir | Not started | — |
+| **3.11** | Disk: redesign tabs as Devices (block devices w/ IOPS+Tput) and Partitions (filesystems w/ usage+mount path) | Not started | — |
+| **3.11a** | Backend: add `mountpoint` label to `disk_free`/`disk_size` PromQL queries, expose in `DiskMetrics` | Not started | — |
+| **3.11b** | Backend: split disk response into `devices[]` (IOPS/Tput) and `partitions[]` (free/size/mount) | Not started | — |
+| **3.11c** | Frontend: replace Space/IOPS/Tput tabs with Devices/Partitions tabs | Not started | — |
+| **3.11d** | Feasibility: check if `node_filesystem_*` `mountpoint` label reliably reports mount paths on EKS nodes | Not started | — |
+| **3.12** | Network: handle missing `speed_bytes` on `eth*` (AWS doesn't expose link speed) | Not started | — |
 | **4** | Mock DCGM exporter for GPU metrics | Not started | — |
 | **5** | Docker-compose local development stack | Not started | — |
 | **6** | Playwright end-to-end tests | Not started | — |
