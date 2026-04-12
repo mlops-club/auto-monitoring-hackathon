@@ -1,6 +1,6 @@
 """Functional tests that run against a live server.
 
-These tests require a running instance of the Cluster Stats backend.
+These tests require a running instance of the Fleet Stats backend.
 Set the CS_BACKEND_BASE_URL environment variable to the server URL.
 
 Run with:

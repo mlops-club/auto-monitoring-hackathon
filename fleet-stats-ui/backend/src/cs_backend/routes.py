@@ -1,4 +1,4 @@
-"""API routes for the Cluster Stats backend."""
+"""API routes for the Fleet Stats backend."""
 
 import asyncio
 import time

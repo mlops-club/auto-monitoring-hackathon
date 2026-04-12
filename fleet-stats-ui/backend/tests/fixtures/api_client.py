@@ -16,9 +16,9 @@ def _make_test_settings(tmp_path: Path) -> Settings:
     static_dir = tmp_path / "static"
     assets_dir = static_dir / "assets"
     assets_dir.mkdir(parents=True)
-    (static_dir / "index.html").write_text("<!doctype html><html><body>cluster stats ui</body></html>")
-    (assets_dir / "app.js").write_text('console.log("cluster stats ui");')
-    return Settings(app_name="Test Cluster Stats API", static_dir=static_dir, mimir_base_url=_MIMIR_BASE)
+    (static_dir / "index.html").write_text("<!doctype html><html><body>fleet stats ui</body></html>")
+    (assets_dir / "app.js").write_text('console.log("fleet stats ui");')
+    return Settings(app_name="Test Fleet Stats API", static_dir=static_dir, mimir_base_url=_MIMIR_BASE)
 
 
 @pytest.fixture

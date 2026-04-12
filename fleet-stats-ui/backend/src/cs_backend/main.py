@@ -1,4 +1,4 @@
-"""Entrypoint for the Cluster Stats backend."""
+"""Entrypoint for the Fleet Stats backend."""
 
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -43,7 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         docs_url="/docs",
         title=settings.app_name,
         version="v1",
-        summary="Backend API for the Cluster Stats monitoring UI.",
+        summary="Backend API for the Fleet Stats monitoring UI.",
         lifespan=_lifespan,
     )
 

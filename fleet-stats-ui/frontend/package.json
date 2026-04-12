@@ -1,5 +1,5 @@
 {
-  "name": "cluster-stats-ui-frontend",
+  "name": "fleet-stats-ui-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
