@@ -1,7 +1,7 @@
 [project]
 name = "cs-backend"
 version = "0.1.0"
-description = "Cluster Stats UI backend — FastAPI app for querying and serving cluster metrics"
+description = "Fleet Stats UI backend — FastAPI app for querying and serving cluster metrics"
 readme = "README.md"
 authors = [
     { name = "phitoduck", email = "eric.riddoch@gmail.com" }

@@ -20,7 +20,7 @@ metrics to K8s API labels on node name.
 - `node_exporter`: copies `__meta_kubernetes_pod_node_name` → `node`
 - `cadvisor`: copies `__meta_kubernetes_node_name` → `node`
 
-#### 2. K8s node labels endpoint (`cluster-stats-ui/backend/`)
+#### 2. K8s node labels endpoint (`fleet-stats-ui/backend/`)
 
 - **New module `k8s.py`** — queries the K8s API (`list_node()`) for node labels
   with a 60-second TTL cache. Uses in-cluster config when deployed, falls back
@@ -51,7 +51,7 @@ Added `kubectl apply` step for the RBAC manifest before ingress resources.
 - Verified via `curl http://localhost:3000/api/labels` and the interactive
   `/docs` Swagger UI.
 
-## 2026-04-11 — Cluster Stats UI frontend scaffold and local run flows
+## 2026-04-11 — Fleet Stats UI frontend scaffold and local run flows
 
 ### Why
 
@@ -61,7 +61,7 @@ behavior together before the real mimir-backed features land.
 
 ### What changed
 
-#### 1. Frontend app (`cluster-stats-ui/frontend/`)
+#### 1. Frontend app (`fleet-stats-ui/frontend/`)
 
 Added a Vite + React + TypeScript application following the requested pattern:
 
@@ -70,13 +70,13 @@ Added a Vite + React + TypeScript application following the requested pattern:
 - **Split-mode development** — Vite serves the frontend directly and proxies
   `/health`, `/openapi.json`, and `/api/*` requests to the backend.
 - **Bundled-mode development** — Vite builds into
-  `cluster-stats-ui/backend/src/cs_backend/static/` so FastAPI can serve the
+  `fleet-stats-ui/backend/src/cs_backend/static/` so FastAPI can serve the
   frontend and SPA routes from one process.
 - **Placeholder UI shell** — includes route handling and a backend probe button
   so frontend/backend integration can be exercised before real cluster data is
   wired in.
 
-#### 2. Shared run script (`cluster-stats-ui/run`)
+#### 2. Shared run script (`fleet-stats-ui/run`)
 
 Added a bash `run` entrypoint to manage local workflows without `poethepoet` or
 `just`:
@@ -89,7 +89,7 @@ Added a bash `run` entrypoint to manage local workflows without `poethepoet` or
 
 Python processes run via `uv`, matching the repo conventions.
 
-#### 3. Backend follow-up for frontend serving (`cluster-stats-ui/backend/`)
+#### 3. Backend follow-up for frontend serving (`fleet-stats-ui/backend/`)
 
 Extended the merged backend scaffold so it can support the frontend workflow:
 
@@ -102,9 +102,9 @@ Extended the merged backend scaffold so it can support the frontend workflow:
 - **Test fixture updates** — backend tests now mount temporary static assets so
   serving behavior is covered in-process
 
-#### 4. Workflow expansion (`.github/workflows/cluster-stats-ui.yml`)
+#### 4. Workflow expansion (`.github/workflows/fleet-stats-ui.yml`)
 
-Expanded the Cluster Stats UI workflow so PRs touching either the frontend or
+Expanded the Fleet Stats UI workflow so PRs touching either the frontend or
 backend run the relevant checks:
 
 - **`frontend-build`** — installs `pnpm` deps and runs the frontend build
@@ -119,7 +119,7 @@ backend run the relevant checks:
 - `./run build:frontend`
 - `./run test:backend`
 - `./run test:static`
-- `pnpm run lint` in `cluster-stats-ui/frontend`
+- `pnpm run lint` in `fleet-stats-ui/frontend`
 - Verified `serve:frontend`, `serve:backend`, `serve:split`, `serve:bundled`,
   `build:frontend:watch`, and `serve:bundled-watch`
 - Used headless Chromium to load the split-mode UI, click the probe button, and
@@ -127,7 +127,7 @@ backend run the relevant checks:
 - Edited frontend files while both watch modes were running and confirmed the
   bundle/HMR updated correctly
 
-## 2026-04-11 — Cluster Stats UI backend and CI workflow
+## 2026-04-11 — Fleet Stats UI backend and CI workflow
 
 ### Why
 
@@ -137,9 +137,9 @@ Actions workflow so tests run automatically on every PR.
 
 ### What changed
 
-#### 1. FastAPI backend (`cluster-stats-ui/backend/`)
+#### 1. FastAPI backend (`fleet-stats-ui/backend/`)
 
-New `uv`-managed Python package at `cluster-stats-ui/backend/src/cs_backend/`
+New `uv`-managed Python package at `fleet-stats-ui/backend/src/cs_backend/`
 following the same patterns as `apigw-rest-api/`:
 
 - **`create_app()` factory** — settings-injectable, no globals. Settings stored
@@ -151,7 +151,7 @@ following the same patterns as `apigw-rest-api/`:
 - **Global error handler** — catches unhandled exceptions, returns structured JSON.
 - **Proper HTTP verbs/nouns** — `GET /health` endpoint to start.
 
-#### 2. Test framework (`cluster-stats-ui/backend/tests/`)
+#### 2. Test framework (`fleet-stats-ui/backend/tests/`)
 
 - **Fixtures as plugins** — `tests/fixtures/` modules registered via
   `pytest_plugins` in `conftest.py` (same pattern as cloud-course-project).
@@ -160,9 +160,9 @@ following the same patterns as `apigw-rest-api/`:
 - **Functional tests** (`tests/functional_tests/`) — uses `httpx.Client` against
   a live server via `CS_BACKEND_BASE_URL` env var, marked `@slow`.
 
-#### 3. GitHub Actions workflow (`.github/workflows/cluster-stats-ui.yml`)
+#### 3. GitHub Actions workflow (`.github/workflows/fleet-stats-ui.yml`)
 
-Triggers on PRs and pushes to main when `cluster-stats-ui/**` files change.
+Triggers on PRs and pushes to main when `fleet-stats-ui/**` files change.
 Two jobs run **in parallel**:
 
 - **`backend-unit-tests`** — installs deps, runs unit tests with coverage.

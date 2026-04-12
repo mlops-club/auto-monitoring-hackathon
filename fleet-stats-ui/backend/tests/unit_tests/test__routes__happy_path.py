@@ -9,7 +9,7 @@ def test__get_health(client: TestClient):
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["app_name"] == "Test Cluster Stats API"
+    assert data["app_name"] == "Test Fleet Stats API"
 
 
 def test__get_health__response_schema(client: TestClient):

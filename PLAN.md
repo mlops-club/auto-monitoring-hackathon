@@ -69,7 +69,7 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
 
 ### 2. Full-stack FastAPI app
 
-1. [x] Create a FastAPI app in `cluster-stats-ui/backend/src/cs_backend/`
+1. [x] Create a FastAPI app in `fleet-stats-ui/backend/src/cs_backend/`
    1. [x] uses the `create_app()` pattern
    2. [x] manages dependencies with `uv`
    3. [x] manages settings with `pydantic-settings` and the settings dict
@@ -80,7 +80,7 @@ Vague goal: figure out how to get everyone the AWS, EKS, and Grafana stack acces
    6. [x] Uses pydantic models to ensure OpenAPI docs are correct
    7. [x] Uses proper HTTP verbs and nouns in all endpoints
 
-2. [x] Create a frontend application in `cluster-stats-ui/frontend/`
+2. [x] Create a frontend application in `fleet-stats-ui/frontend/`
    1. [x] Follow the pattern shown in [this repo](https://github.com/phitoduck/come-follow-me-app/tree/main/rs-frontend/src)
       1. [x] use Vite, TypeScript, React
       2. [x] have a `run` script that is used to bundle the backend and frontend, model the run script after [this one](https://raw.githubusercontent.com/mlops-club/cloud-course-project/refs/heads/main/run.sh?token=GHSAT0AAAAAADWR4ABULUA3QV72YK2PCCY22OZ5FIA)

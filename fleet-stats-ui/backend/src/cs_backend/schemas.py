@@ -12,7 +12,7 @@ class HealthResponse(BaseModel):
             "examples": [
                 {
                     "status": "healthy",
-                    "app_name": "Cluster Stats API",
+                    "app_name": "Fleet Stats API",
                 }
             ]
         },

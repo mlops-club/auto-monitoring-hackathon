@@ -1,6 +1,6 @@
-# Cluster Stats Backend
+# Fleet Stats Backend
 
-FastAPI backend for the Cluster Stats monitoring UI.
+FastAPI backend for the Fleet Stats monitoring UI.
 
 ## Setup
 

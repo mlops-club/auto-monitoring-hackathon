@@ -1,4 +1,4 @@
-# Cluster Stats UI — Spec
+# Fleet Stats UI — Spec
 
 ## Overview
 

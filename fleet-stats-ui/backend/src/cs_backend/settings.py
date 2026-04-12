@@ -1,4 +1,4 @@
-"""Settings for the Cluster Stats backend."""
+"""Settings for the Fleet Stats backend."""
 
 from pathlib import Path
 
@@ -7,12 +7,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Settings for the Cluster Stats backend.
+    """Settings for the Fleet Stats backend.
 
     Values are read from environment variables automatically.
     """
 
-    app_name: str = "Cluster Stats API"
+    app_name: str = "Fleet Stats API"
     debug: bool = False
     mimir_base_url: str = "http://mimir:8080"
     mimir_tenant_id: str = "anonymous"

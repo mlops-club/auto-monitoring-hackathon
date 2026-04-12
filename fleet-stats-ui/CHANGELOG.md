@@ -1,4 +1,4 @@
-# Cluster Stats UI — Changelog
+# Fleet Stats UI — Changelog
 
 ## 2026-04-11
 

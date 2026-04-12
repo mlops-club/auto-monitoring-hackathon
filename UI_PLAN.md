@@ -578,7 +578,7 @@ Add to `frontend/package.json` scripts:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: cluster-stats-ui/frontend
+        working-directory: fleet-stats-ui/frontend
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -588,7 +588,7 @@ Add to `frontend/package.json` scripts:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: cluster-stats-ui/frontend/pnpm-lock.yaml
+          cache-dependency-path: fleet-stats-ui/frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:coverage
       - run: pnpm run lint
@@ -788,11 +788,11 @@ For phases that only read from Mimir (Phases 0, 2, 3), you can point at the real
 kubectl port-forward -n monitoring svc/mimir-gateway 8080:80
 
 # Terminal 2: run backend (Phase 2+)
-cd cluster-stats-ui
+cd fleet-stats-ui
 MIMIR_URL=http://localhost:8080 uv run uvicorn cs_backend.app:create_app --factory --reload --port 8000
 
 # Terminal 3: run frontend dev server (Phase 3+)
-cd cluster-stats-ui/frontend
+cd fleet-stats-ui/frontend
 pnpm run dev
 ```
 
@@ -834,7 +834,7 @@ services:
     # for ALL GPU metrics (util, fb, temp, power)
 
   backend:
-    build: ./cluster-stats-ui/backend
+    build: ./fleet-stats-ui/backend
     environment:
       MIMIR_URL: http://mimir:8080
       # In docker-compose, no K8s API available.
@@ -842,7 +842,7 @@ services:
       # with no K8s labels (label filtering disabled).
     ports: ["8000:8000"]
     volumes:
-      - ./cluster-stats-ui/backend/src:/app/src
+      - ./fleet-stats-ui/backend/src:/app/src
     depends_on: [mimir]
 ```
 
